@@ -12,6 +12,10 @@ export const window = {
   showInformationMessage: async () => undefined,
   showErrorMessage: async () => undefined,
   showWarningMessage: async () => undefined,
+  showQuickPick: jest.fn(async () => undefined),
+  registerWebviewViewProvider: jest.fn(() => ({
+    dispose: () => undefined,
+  })),
 };
 
 export const workspace = {
@@ -22,6 +26,11 @@ export const workspace = {
 
 export const commands = {
   registerCommand: () => ({ dispose: () => undefined }),
+  executeCommand: jest.fn(async () => undefined),
+};
+
+export const env = {
+  openExternal: jest.fn(async () => true),
 };
 
 export class TreeItem {
@@ -38,12 +47,21 @@ export enum TreeItemCollapsibleState {
 }
 
 export class EventEmitter {
-  event = () => ({ dispose: () => undefined });
-  fire(): void {
-    /* noop */
+  private listeners: ((...args: unknown[]) => void)[] = [];
+
+  event = (listener: (...args: unknown[]) => void) => {
+    this.listeners.push(listener);
+    return { dispose: () => undefined };
+  };
+
+  fire(...args: unknown[]): void {
+    for (const listener of this.listeners) {
+      listener(...args);
+    }
   }
+
   dispose(): void {
-    /* noop */
+    this.listeners = [];
   }
 }
 

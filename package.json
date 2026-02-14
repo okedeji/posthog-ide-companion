@@ -16,7 +16,64 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": []
+    "authentication": [
+      {
+        "id": "posthog",
+        "label": "PostHog"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "posthog",
+          "title": "PostHog",
+          "icon": "resources/posthog-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "posthog": [
+        {
+          "type": "webview",
+          "id": "posthog.sidebar",
+          "name": "PostHog",
+          "icon": "resources/posthog-icon.svg",
+          "when": "posthog.authenticated && posthog.projectSelected"
+        },
+        {
+          "id": "posthog.welcome",
+          "name": "PostHog",
+          "icon": "resources/posthog-icon.svg",
+          "when": "!posthog.authenticated || !posthog.projectSelected"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "posthog.welcome",
+        "contents": "Sign in to PostHog to monitor errors and get AI-powered fixes.\n[Sign In](command:posthog.signIn)",
+        "when": "!posthog.authenticated"
+      },
+      {
+        "view": "posthog.welcome",
+        "contents": "Select a project to get started.\n[Select Project](command:posthog.selectProject)",
+        "when": "posthog.authenticated && !posthog.projectSelected"
+      }
+    ],
+    "commands": [
+      {
+        "command": "posthog.signIn",
+        "title": "PostHog: Sign In"
+      },
+      {
+        "command": "posthog.signOut",
+        "title": "PostHog: Sign Out"
+      },
+      {
+        "command": "posthog.selectProject",
+        "title": "PostHog: Select Project"
+      }
+    ]
   },
   "scripts": {
     "compile": "pnpm check-types && node esbuild.mjs",
