@@ -1,0 +1,81 @@
+{
+  "name": "posthog-ide-companion",
+  "displayName": "PostHog IDE Companion",
+  "description": "A VSCode extension that makes PostHog proactive in the developer's workflow. It monitors your PostHog project in the background, lets you ask questions about your data without leaving the IDE, and takes action on code when something needs fixing.",
+  "version": "0.1.0",
+  "publisher": "tobiokedeji",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": []
+  },
+  "scripts": {
+    "compile": "pnpm check-types && node esbuild.mjs",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.mjs --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "build": "pnpm compile",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "check-types": "tsc --noEmit",
+    "package": "pnpm check-types && node esbuild.mjs --production && vsce package",
+    "prepare": "husky",
+    "vscode:prepublish": "pnpm package"
+  },
+  "jest": {
+    "collectCoverage": true,
+    "coveragePathIgnorePatterns": ["dist"],
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json"],
+    "modulePathIgnorePatterns": ["<rootDir>/dist/"],
+    "testPathIgnorePatterns": ["/dist/", "/node_modules/"],
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^vscode$": "<rootDir>/__mocks__/vscode.ts"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "openai": "^6.21.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.19.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.27.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "lint-staged": "^16.2.7",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.8.0",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.9.0"
+  }
+}

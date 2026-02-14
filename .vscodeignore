@@ -1,0 +1,28 @@
+# Editor and IDE
+.vscode/**
+.claude/**
+
+# Source and tests (users get the bundled dist/)
+src/**
+__mocks__/**
+
+# Dependencies (bundled into dist/extension.js by esbuild)
+node_modules/**
+
+# Build tooling and config
+.gitignore
+.eslintrc.json
+.prettierrc
+tsconfig.json
+esbuild.mjs
+.husky/**
+
+# Test artifacts
+.vscode-test/**
+
+# Sourcemaps and raw TypeScript
+**/*.map
+**/*.ts
+
+# Explicitly include the bundled output
+!dist/extension.js
