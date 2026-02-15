@@ -9,7 +9,7 @@ describe('TokenCounter', () => {
       expect(counter.countText('')).toBe(0);
     });
 
-    it('should count tokens for simple text', () => {
+    it('counts tokens for simple text', () => {
       // "Hello, world!" = 13 chars → ceil(13 / 4) = 4 tokens
       const count = counter.countText('Hello, world!');
       expect(count).toBe(4);
@@ -23,7 +23,7 @@ describe('TokenCounter', () => {
       expect(long).toBeGreaterThan(short);
     });
 
-    it('should handle code content', () => {
+    it('handles code content', () => {
       // 36 chars → ceil(36 / 4) = 9 tokens
       const code = 'function hello() { return "world"; }';
       expect(counter.countText(code)).toBe(9);
@@ -35,7 +35,7 @@ describe('TokenCounter', () => {
       expect(counter.countMessages([])).toBe(0);
     });
 
-    it('should count tokens in string content messages', () => {
+    it('counts tokens in string content messages', () => {
       const messages: LLMMessage[] = [
         { role: 'user', content: 'Hello' }, // 4 overhead + ceil(5/4)=2 = 6
         { role: 'assistant', content: 'Hi there!' }, // 4 overhead + ceil(9/4)=3 = 7
@@ -75,7 +75,7 @@ describe('TokenCounter', () => {
       expect(counter.countMessages(messages)).toBe(26);
     });
 
-    it('should include per-message overhead', () => {
+    it('includes per-message overhead', () => {
       const singleMessage: LLMMessage[] = [
         { role: 'user', content: 'Hi' }, // 4 overhead + ceil(2/4)=1 = 5
       ];

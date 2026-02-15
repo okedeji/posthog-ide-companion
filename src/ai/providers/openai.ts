@@ -109,17 +109,7 @@ export class OpenAIProvider implements LLMProvider {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Input conversion (internal)
-// ---------------------------------------------------------------------------
-
-/**
- * Converts our message format to OpenAI Responses API input.
- *
- * - User/assistant text messages become EasyInputMessage items
- * - Assistant tool_use blocks become function_call items
- * - User tool_result blocks become function_call_output items
- */
+/** Converts our normalized messages to OpenAI Responses API input items. */
 function toOpenAIInput(messages: LLMMessage[]): OpenAI.Responses.ResponseInput {
   const input: OpenAI.Responses.ResponseInputItem[] = [];
 
@@ -159,6 +149,8 @@ function pushContentBlock(
         name: block.name,
         arguments: JSON.stringify(block.input),
         call_id: block.id,
+        // The Responses API type defs don't include function_call as a valid
+        // input item, but the API accepts it. Cast until the SDK catches up.
       } as OpenAI.Responses.ResponseInputItem);
       break;
     case 'tool_result':
@@ -181,10 +173,6 @@ function toOpenAITool(tool: ToolDefinition): OpenAI.Responses.FunctionTool {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Response extraction (internal)
-// ---------------------------------------------------------------------------
-
 function mapFunctionCalls(
   calls: OpenAI.Responses.ResponseFunctionToolCall[],
 ): ToolCall[] {
@@ -195,7 +183,6 @@ function mapFunctionCalls(
   }));
 }
 
-/** Parses JSON arguments, falling back to a _raw key so failures are traceable. */
 function safeParse(json: string): Record<string, unknown> {
   try {
     return JSON.parse(json) as Record<string, unknown>;

@@ -21,7 +21,7 @@ export async function fetchProjects(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch projects: ${String(response.status)}`);
+    throw new Error(`Failed to fetch projects: ${response.status}`);
   }
 
   const data: unknown = await response.json();
@@ -34,7 +34,7 @@ export async function showProjectPicker(
 ): Promise<PostHogProject | undefined> {
   const items = projects.map((project) => ({
     label: project.name,
-    description: `ID: ${String(project.id)}`,
+    description: `ID: ${project.id}`,
     project,
   }));
 

@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import type { PostHogProject } from '../../auth/schemas';
-import type { AISelection } from '../../ai/types';
+import type {
+  AISelection,
+  WorkspaceInfo,
+  DetectionStatus,
+} from '../../ai/types';
 import type { CloudRegion } from '../../auth/constants';
 import { CLOUD_URLS } from '../../auth/constants';
 import { buildProjectHtml, buildEmptyHtml } from './sidebar-html';
@@ -11,13 +15,7 @@ type WebviewMessage =
   | { command: 'openDashboard' }
   | { command: 'configureAI' };
 
-/**
- * Webview provider for the PostHog sidebar panel.
- *
- * Manages the webview lifecycle and routes messages from the
- * webview buttons to extension commands. All HTML rendering
- * is delegated to sidebar-html.ts.
- */
+/** Sidebar webview — routes button messages to extension commands. */
 export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'posthog.sidebar';
 
@@ -26,32 +24,31 @@ export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
   private _region: CloudRegion | undefined;
   private _aiSelection: AISelection | undefined;
   private _aiModelLabel: string | undefined;
+  private _workspaceInfo: WorkspaceInfo | undefined;
+  private _detectionStatus: DetectionStatus | undefined;
   private _disposables: vscode.Disposable[] = [];
 
-  /**
-   * Updates the sidebar with new project info and re-renders.
-   *
-   * @param project - The active project, or undefined to clear.
-   * @param region - The cloud region (e.g. "us", "eu").
-   */
   setProject(project: PostHogProject | undefined, region?: CloudRegion): void {
     this._project = project;
     this._region = region;
     this._render();
   }
 
-  /**
-   * Updates the sidebar with the AI provider/model selection and re-renders.
-   *
-   * @param selection  - The active AI selection, or undefined to clear.
-   * @param modelLabel - Human-readable model label (e.g. "Claude Sonnet 4.5").
-   */
   setAISelection(
     selection: AISelection | undefined,
     modelLabel?: string,
   ): void {
     this._aiSelection = selection;
     this._aiModelLabel = modelLabel;
+    this._render();
+  }
+
+  setWorkspaceDetection(
+    status: DetectionStatus | undefined,
+    info?: WorkspaceInfo,
+  ): void {
+    this._detectionStatus = status;
+    this._workspaceInfo = info;
     this._render();
   }
 
@@ -108,6 +105,8 @@ export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
           this._region,
           this._aiSelection,
           this._aiModelLabel,
+          this._workspaceInfo,
+          this._detectionStatus,
         )
       : buildEmptyHtml();
   }
@@ -122,7 +121,7 @@ export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const url = `${baseUrl}/project/${String(this._project.id)}`;
+    const url = `${baseUrl}/project/${this._project.id}`;
     void vscode.env.openExternal(vscode.Uri.parse(url));
   }
 }

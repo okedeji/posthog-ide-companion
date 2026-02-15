@@ -1,10 +1,6 @@
 import * as http from 'http';
 import { performOAuthFlow, refreshAccessToken } from '../oauth';
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -77,10 +73,6 @@ function createMockServer() {
   return { mockServer, simulateCallback };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('performOAuthFlow', () => {
   beforeEach(() => {
     mockFetch.mockReset();
@@ -90,7 +82,7 @@ describe('performOAuthFlow', () => {
   it('should complete the full OAuth flow', async () => {
     const { simulateCallback } = createMockServer();
 
-    // DCR registration → token exchange (two sequential fetch calls)
+    // Two sequential fetch calls: DCR registration, then token exchange
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -115,7 +107,7 @@ describe('performOAuthFlow', () => {
     expect(result.tokenResponse.access_token).toBe('phx_new_access');
   });
 
-  it('should call DCR with the correct URL for US region', async () => {
+  it('calls DCR with the correct URL for US region', async () => {
     const { simulateCallback } = createMockServer();
 
     mockFetch
@@ -161,7 +153,7 @@ describe('performOAuthFlow', () => {
     );
   });
 
-  it('should exchange the auth code with correct parameters', async () => {
+  it('exchanges the auth code with correct parameters', async () => {
     const { simulateCallback } = createMockServer();
 
     mockFetch
@@ -205,7 +197,7 @@ describe('performOAuthFlow', () => {
     await expect(flowPromise).rejects.toThrow('OAuth error: access_denied');
   });
 
-  it('should reject when callback has no code', async () => {
+  it('rejects when callback has no code', async () => {
     const { simulateCallback } = createMockServer();
 
     mockFetch.mockResolvedValueOnce({
@@ -228,7 +220,7 @@ describe('performOAuthFlow', () => {
       json: async () => validDcrResponse,
     });
 
-    // This request should get a 404 — it does NOT resolve the flow
+    // This request hits a 404, it does NOT resolve the flow
     const flowPromise = performOAuthFlow('us');
     await new Promise((r) => setTimeout(r, 10));
     const { statusCode } = simulateCallback('/wrong-path');
@@ -244,7 +236,7 @@ describe('performOAuthFlow', () => {
     await flowPromise;
   });
 
-  it('should throw when DCR registration fails', async () => {
+  it('throws when DCR registration fails', async () => {
     createMockServer();
 
     mockFetch.mockResolvedValueOnce({
@@ -283,7 +275,7 @@ describe('refreshAccessToken', () => {
     mockFetch.mockReset();
   });
 
-  it('should return a parsed token response on success', async () => {
+  it('returns a parsed token response on success', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => validTokenResponse,
@@ -317,7 +309,7 @@ describe('refreshAccessToken', () => {
     );
   });
 
-  it('should call the correct endpoint for EU region', async () => {
+  it('calls the correct endpoint for EU region', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => validTokenResponse,
@@ -350,7 +342,7 @@ describe('refreshAccessToken', () => {
     });
   });
 
-  it('should throw on non-ok response', async () => {
+  it('throws on non-ok response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 401,

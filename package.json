@@ -76,6 +76,10 @@
       {
         "command": "posthog.configureAI",
         "title": "PostHog: Configure AI Provider"
+      },
+      {
+        "command": "posthog.detectWorkspace",
+        "title": "PostHog: Detect Workspace"
       }
     ]
   },

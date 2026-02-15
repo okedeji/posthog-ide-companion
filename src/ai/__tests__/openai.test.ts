@@ -24,7 +24,7 @@ describe('OpenAIProvider', () => {
   });
 
   describe('generate', () => {
-    it('should return text response when no function calls', async () => {
+    it('returns text response when no function calls', async () => {
       mockCreate.mockResolvedValue({
         output: [{ type: 'message', content: [{ type: 'text', text: 'Hi!' }] }],
         output_text: 'Hi!',
@@ -70,7 +70,7 @@ describe('OpenAIProvider', () => {
       }
     });
 
-    it('should handle malformed JSON arguments with _raw fallback', async () => {
+    it('handles malformed JSON arguments with _raw fallback', async () => {
       mockCreate.mockResolvedValue({
         output: [
           {
@@ -119,7 +119,7 @@ describe('OpenAIProvider', () => {
       );
     });
 
-    it('should convert tool_use and tool_result content blocks', async () => {
+    it('converts tool_use and tool_result content blocks', async () => {
       mockCreate.mockResolvedValue({
         output: [],
         output_text: 'Done',
@@ -183,7 +183,7 @@ describe('OpenAIProvider', () => {
       );
     });
 
-    it('should handle missing usage gracefully', async () => {
+    it('handles missing usage gracefully', async () => {
       mockCreate.mockResolvedValue({
         output: [],
         output_text: 'ok',
@@ -232,7 +232,7 @@ describe('OpenAIProvider', () => {
       });
     });
 
-    it('should handle missing usage in completed event', async () => {
+    it('handles missing usage in completed event', async () => {
       const events = [
         { type: 'response.output_text.delta', delta: 'ok' },
         { type: 'response.completed', response: { usage: undefined } },

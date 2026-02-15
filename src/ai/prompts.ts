@@ -1,15 +1,8 @@
-import type { PromptSection } from './types';
-
-// ---------------------------------------------------------------------------
-// Foundation prompt — always included at priority 0.
-// ---------------------------------------------------------------------------
+import type { PromptSection, WorkspaceInfo } from './types';
 
 /**
- * The foundation system prompt. Establishes the AI's identity, behavior
- * rules, tool usage guidelines, and response format expectations.
- *
- * This is always the first section in a composed prompt. Features add
- * domain-specific instructions via `addSection()`.
+ * Foundation system prompt — always the first section (priority 0).
+ * Features add domain-specific instructions via `addSection()`.
  */
 export const FOUNDATION_PROMPT = `You are an AI assistant integrated into a developer's IDE, helping them understand and work with their PostHog analytics data and codebase.
 
@@ -35,33 +28,15 @@ export const FOUNDATION_PROMPT = `You are an AI assistant integrated into a deve
 - Keep responses focused and actionable.
 - When presenting findings, organize them with headers and bullet points.`;
 
-// ---------------------------------------------------------------------------
-// Prompt builder
-// ---------------------------------------------------------------------------
-
 /**
- * Builds a composable system prompt from registered sections.
- *
- * The foundation prompt is always included at priority 0.
- * Features register additional sections that are merged by priority
- * (lower number = appears earlier in the final prompt).
- *
- * Sections with duplicate keys are resolved by last-write-wins.
- *
- * @example
- * ```ts
- * const builder = createSystemPromptBuilder();
- * builder.addSection({
- *   key: 'error-analysis',
- *   content: '## Error Analysis\nWhen analyzing errors...',
- *   priority: 50,
- * });
- * const prompt = builder.build();
- * ```
+ * Composable system prompt from registered sections.
+ * Foundation is always at priority 0. Features add sections merged by
+ * priority (lower = earlier). Duplicate keys: last-write-wins.
  */
 export class SystemPromptBuilder {
   private _sections: Map<string, Required<PromptSection>> = new Map();
 
+  // Priority: 0 = foundation, 10 = workspace context, 100 = default for features
   constructor() {
     this._sections.set('foundation', {
       key: 'foundation',
@@ -70,13 +45,6 @@ export class SystemPromptBuilder {
     });
   }
 
-  /**
-   * Registers a prompt section. If a section with the same key exists,
-   * it is overwritten.
-   *
-   * @param section - The section to register.
-   * @returns This builder, for chaining.
-   */
   addSection(section: PromptSection): this {
     this._sections.set(section.key, {
       ...section,
@@ -85,13 +53,7 @@ export class SystemPromptBuilder {
     return this;
   }
 
-  /**
-   * Removes a previously registered section by key.
-   * The foundation section cannot be removed.
-   *
-   * @param key - The section key to remove.
-   * @returns True if the section was found and removed.
-   */
+  /** The foundation section cannot be removed. */
   removeSection(key: string): boolean {
     if (key === 'foundation') {
       return false;
@@ -99,11 +61,6 @@ export class SystemPromptBuilder {
     return this._sections.delete(key);
   }
 
-  /**
-   * Returns the merged system prompt string.
-   * Sections are sorted by priority (lower = first) and joined with
-   * double newlines.
-   */
   build(): string {
     const sorted = [...this._sections.values()].sort(
       (a, b) => a.priority - b.priority,
@@ -111,16 +68,75 @@ export class SystemPromptBuilder {
     return sorted.map((s) => s.content).join('\n\n');
   }
 
-  /** Returns the registered section keys (for debugging/testing). */
   get keys(): string[] {
     return [...this._sections.keys()];
   }
 }
 
-/**
- * Creates a pre-configured system prompt builder with the foundation prompt.
- * Features call `addSection()` to contribute their domain-specific instructions.
- */
 export function createSystemPromptBuilder(): SystemPromptBuilder {
   return new SystemPromptBuilder();
+}
+
+/**
+ * Converts workspace detection results into a prompt section at priority 10,
+ * so the LLM gets project context before any feature-specific instructions.
+ */
+export function createWorkspaceContextSection(
+  info: WorkspaceInfo,
+): PromptSection {
+  const lines: string[] = ['## Workspace Context', ''];
+
+  // Language + structure
+  lines.push(`This is a ${info.projectStructure} ${info.language} project.`);
+
+  // Frameworks with versions
+  if (info.frameworks.length > 0) {
+    const frameworkList = info.frameworks
+      .map((f) => {
+        const version = info.frameworkVersions[f];
+        return version ? `${f} ${version}` : f;
+      })
+      .join(', ');
+    lines.push(`Frameworks: ${frameworkList}.`);
+  }
+
+  // Framework details (e.g. Next.js router type)
+  for (const [framework, details] of Object.entries(info.frameworkDetails)) {
+    const detailParts = Object.entries(details).map(
+      ([key, value]) => `${key}: ${value}`,
+    );
+    if (detailParts.length > 0) {
+      lines.push(`${framework} details: ${detailParts.join(', ')}.`);
+    }
+  }
+
+  // Package manager
+  if (info.packageManager) {
+    lines.push(`Package manager: ${info.packageManager}.`);
+  }
+
+  // Test frameworks
+  if (info.testFrameworks.length > 0) {
+    lines.push(`Test frameworks: ${info.testFrameworks.join(', ')}.`);
+  }
+
+  // Build tools
+  if (info.buildTools.length > 0) {
+    lines.push(`Build tools: ${info.buildTools.join(', ')}.`);
+  }
+
+  // Notable patterns
+  if (info.notablePatterns.length > 0) {
+    lines.push('');
+    lines.push('Notable patterns:');
+    for (const pattern of info.notablePatterns) {
+      lines.push(`- ${pattern}`);
+    }
+  }
+
+  return {
+    key: 'workspace-context',
+    content: lines.join('\n'),
+    priority: 10,
+  };
 }

@@ -8,9 +8,7 @@ import {
 } from '../tools/workspace';
 import type { ToolCall } from '../types';
 
-// ---------------------------------------------------------------------------
 // Setup: create a temp workspace with test files
-// ---------------------------------------------------------------------------
 
 let workspaceRoot: string;
 let executor: (call: ToolCall) => Promise<string>;
@@ -38,10 +36,6 @@ afterAll(async () => {
   await fs.rm(workspaceRoot, { recursive: true, force: true });
 });
 
-// ---------------------------------------------------------------------------
-// Tool definitions
-// ---------------------------------------------------------------------------
-
 describe('WORKSPACE_TOOLS', () => {
   it('should define readFile, listDirectory, and searchCode', () => {
     const names = WORKSPACE_TOOLS.map((t) => t.name);
@@ -50,7 +44,7 @@ describe('WORKSPACE_TOOLS', () => {
     expect(names).toContain('searchCode');
   });
 
-  it('should have descriptions and parameters for all tools', () => {
+  it('has descriptions and parameters for all tools', () => {
     for (const tool of WORKSPACE_TOOLS) {
       expect(tool.description).toBeTruthy();
       expect(tool.parameters).toBeDefined();
@@ -59,9 +53,7 @@ describe('WORKSPACE_TOOLS', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // readFile
-// ---------------------------------------------------------------------------
 
 describe('readFile executor', () => {
   it('should read a file in the workspace', async () => {
@@ -74,7 +66,7 @@ describe('readFile executor', () => {
     expect(result).toBe('Hello, world!');
   });
 
-  it('should read a file in a subdirectory', async () => {
+  it('reads a file in a subdirectory', async () => {
     const result = await executor({
       id: 'tc2',
       name: 'readFile',
@@ -94,7 +86,7 @@ describe('readFile executor', () => {
     expect(result).toContain('Error');
   });
 
-  it('should return error for nonexistent file', async () => {
+  it('returns error for nonexistent file', async () => {
     const result = await executor({
       id: 'tc4',
       name: 'readFile',
@@ -114,7 +106,7 @@ describe('readFile executor', () => {
     expect(result).toContain('outside the workspace');
   });
 
-  it('should return error when path is a directory', async () => {
+  it('returns error when path is a directory', async () => {
     const result = await executor({
       id: 'tc6',
       name: 'readFile',
@@ -125,9 +117,7 @@ describe('readFile executor', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // listDirectory
-// ---------------------------------------------------------------------------
 
 describe('listDirectory executor', () => {
   it('should list root directory contents', async () => {
@@ -142,7 +132,7 @@ describe('listDirectory executor', () => {
     expect(result).toContain('src/');
   });
 
-  it('should list subdirectory contents', async () => {
+  it('lists subdirectory contents', async () => {
     const result = await executor({
       id: 'tc2',
       name: 'listDirectory',
@@ -164,7 +154,7 @@ describe('listDirectory executor', () => {
     expect(dirEntry).toBe('src/');
   });
 
-  it('should handle empty directories', async () => {
+  it('handles empty directories', async () => {
     const result = await executor({
       id: 'tc4',
       name: 'listDirectory',
@@ -184,7 +174,7 @@ describe('listDirectory executor', () => {
     expect(result).toContain('outside the workspace');
   });
 
-  it('should return error for nonexistent directory', async () => {
+  it('returns error for nonexistent directory', async () => {
     const result = await executor({
       id: 'tc6',
       name: 'listDirectory',
@@ -195,9 +185,7 @@ describe('listDirectory executor', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // searchCode
-// ---------------------------------------------------------------------------
 
 describe('searchCode executor', () => {
   it('should find matches in files', async () => {
@@ -211,7 +199,7 @@ describe('searchCode executor', () => {
     expect(result).toContain('export');
   });
 
-  it('should filter by file glob', async () => {
+  it('filters by file glob', async () => {
     const result = await executor({
       id: 'tc2',
       name: 'searchCode',
@@ -232,7 +220,7 @@ describe('searchCode executor', () => {
     expect(result).toBe('No matches found');
   });
 
-  it('should return error for empty pattern', async () => {
+  it('returns error for empty pattern', async () => {
     const result = await executor({
       id: 'tc4',
       name: 'searchCode',
@@ -242,10 +230,6 @@ describe('searchCode executor', () => {
     expect(result).toContain('Error');
   });
 });
-
-// ---------------------------------------------------------------------------
-// Unknown tool
-// ---------------------------------------------------------------------------
 
 describe('unknown tool', () => {
   it('should return an error message for unknown tools', async () => {
@@ -259,12 +243,8 @@ describe('unknown tool', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Sensitive file deny list
-// ---------------------------------------------------------------------------
-
 describe('SENSITIVE_FILE_PATTERNS', () => {
-  it('should include common secret file patterns', () => {
+  it('includes common secret file patterns', () => {
     expect(SENSITIVE_FILE_PATTERNS).toContain('.env');
     expect(SENSITIVE_FILE_PATTERNS).toContain('*.pem');
     expect(SENSITIVE_FILE_PATTERNS).toContain('id_rsa');
@@ -297,7 +277,7 @@ describe('sensitive file blocking', () => {
     expect(result).toContain('access denied');
   });
 
-  it('should block .env.local files', async () => {
+  it('blocks .env.local files', async () => {
     const result = await executor({
       id: 'tc-envlocal',
       name: 'readFile',
@@ -317,7 +297,7 @@ describe('sensitive file blocking', () => {
     expect(result).toContain('access denied');
   });
 
-  it('should block SSH key files', async () => {
+  it('blocks SSH key files', async () => {
     const result = await executor({
       id: 'tc-ssh',
       name: 'readFile',
@@ -337,7 +317,7 @@ describe('sensitive file blocking', () => {
     expect(result).toContain('access denied');
   });
 
-  it('should filter sensitive files from search results', async () => {
+  it('filters sensitive files from search results', async () => {
     const result = await executor({
       id: 'tc-search-secret',
       name: 'searchCode',
@@ -349,9 +329,7 @@ describe('sensitive file blocking', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // checkEnvKeys
-// ---------------------------------------------------------------------------
 
 describe('checkEnvKeys executor', () => {
   beforeAll(async () => {
@@ -379,7 +357,7 @@ describe('checkEnvKeys executor', () => {
     expect(result).not.toContain('postgres://');
   });
 
-  it('should report missing keys', async () => {
+  it('reports missing keys', async () => {
     const result = await executor({
       id: 'tc-ck2',
       name: 'checkEnvKeys',
@@ -408,7 +386,7 @@ describe('checkEnvKeys executor', () => {
     expect(parsed['MISSING_KEY']).toBe('missing');
   });
 
-  it('should report all keys as missing when file does not exist', async () => {
+  it('reports all keys as missing when file does not exist', async () => {
     const result = await executor({
       id: 'tc-ck4',
       name: 'checkEnvKeys',
@@ -436,7 +414,7 @@ describe('checkEnvKeys executor', () => {
     expect(result).toContain('.env');
   });
 
-  it('should reject empty keys array', async () => {
+  it('rejects empty keys array', async () => {
     const result = await executor({
       id: 'tc-ck6',
       name: 'checkEnvKeys',
@@ -463,9 +441,7 @@ describe('checkEnvKeys executor', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // setEnvValues
-// ---------------------------------------------------------------------------
 
 describe('setEnvValues executor', () => {
   const testEnvPath = '.env.test-write';
@@ -479,7 +455,7 @@ describe('setEnvValues executor', () => {
     }
   });
 
-  it('should create a new .env file with values', async () => {
+  it('creates a new .env file with values', async () => {
     const result = await executor({
       id: 'tc-sv1',
       name: 'setEnvValues',
@@ -527,7 +503,7 @@ describe('setEnvValues executor', () => {
     expect(content).not.toContain('EXISTING=old');
   });
 
-  it('should append new keys to existing file', async () => {
+  it('appends new keys to existing file', async () => {
     await fs.writeFile(
       path.join(workspaceRoot, testEnvPath),
       'EXISTING=value\n',
@@ -567,7 +543,7 @@ describe('setEnvValues executor', () => {
     expect(gitignore).toContain(testEnvPath);
   });
 
-  it('should not duplicate .gitignore entries', async () => {
+  it('does not duplicate .gitignore entries', async () => {
     // Run twice
     await executor({
       id: 'tc-sv5a',
@@ -604,7 +580,7 @@ describe('setEnvValues executor', () => {
     expect(result).toContain('.env');
   });
 
-  it('should reject empty values', async () => {
+  it('rejects empty values', async () => {
     const result = await executor({
       id: 'tc-sv7',
       name: 'setEnvValues',
@@ -628,12 +604,8 @@ describe('setEnvValues executor', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Symlink escape prevention
-// ---------------------------------------------------------------------------
-
 describe('symlink escape prevention', () => {
-  it('should block symlinks that point outside the workspace', async () => {
+  it('blocks symlinks that point outside the workspace', async () => {
     const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'outside-'));
     await fs.writeFile(
       path.join(outsideDir, 'secret.txt'),
@@ -669,7 +641,7 @@ describe('symlink escape prevention', () => {
     expect(result).toBe('Hello, world!');
   });
 
-  it('should block directory symlinks that point outside the workspace', async () => {
+  it('blocks directory symlinks that point outside the workspace', async () => {
     const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'outside2-'));
     await fs.writeFile(path.join(outsideDir, 'data.txt'), 'external');
 

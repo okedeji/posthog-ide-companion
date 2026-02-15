@@ -98,10 +98,6 @@ export class AnthropicProvider implements LLMProvider {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Message conversion (internal)
-// ---------------------------------------------------------------------------
-
 function toAnthropicMessages(messages: LLMMessage[]): Anthropic.MessageParam[] {
   return messages.map((msg): Anthropic.MessageParam => {
     if (typeof msg.content === 'string') {
@@ -141,13 +137,10 @@ function toAnthropicTool(tool: ToolDefinition): Anthropic.Tool {
   return {
     name: tool.name,
     description: tool.description,
+    // Structurally compatible, but the SDK wants its own branded type
     input_schema: tool.parameters as Anthropic.Tool.InputSchema,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Response extraction (internal)
-// ---------------------------------------------------------------------------
 
 function extractText(response: Anthropic.Message): string {
   return response.content

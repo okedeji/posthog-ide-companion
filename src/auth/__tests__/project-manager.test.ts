@@ -8,10 +8,6 @@ import {
 } from '../project-manager';
 import type { PostHogProject } from '../schemas';
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -63,10 +59,6 @@ const sampleProject2: PostHogProject = {
   uuid: 'uuid-2',
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('fetchProjects', () => {
   beforeEach(() => {
     mockFetch.mockReset();
@@ -103,7 +95,7 @@ describe('fetchProjects', () => {
     expect(projects[1]?.name).toBe('Project B');
   });
 
-  it('should call the correct URL for US region', async () => {
+  it('calls the correct URL for US region', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ count: 0, results: [] }),
@@ -135,7 +127,7 @@ describe('fetchProjects', () => {
     );
   });
 
-  it('should throw on non-ok response', async () => {
+  it('throws on non-ok response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 401,
@@ -157,7 +149,7 @@ describe('fetchProjects', () => {
 });
 
 describe('getActiveProject / setActiveProject / clearActiveProject', () => {
-  it('should return undefined when no project is set', () => {
+  it('returns undefined when no project is set', () => {
     const context = createMockContext();
     expect(getActiveProject(context)).toBeUndefined();
   });
@@ -168,7 +160,7 @@ describe('getActiveProject / setActiveProject / clearActiveProject', () => {
     expect(getActiveProject(context)).toEqual(sampleProject);
   });
 
-  it('should fall back to global default when workspace has no project', async () => {
+  it('falls back to global default when workspace has no project', async () => {
     const context = createMockContext();
 
     // Set a project (writes to both workspace and global)
@@ -193,9 +185,9 @@ describe('getActiveProject / setActiveProject / clearActiveProject', () => {
     expect(getActiveProject(context)?.name).toBe('Other Project');
   });
 
-  it('should return undefined after clearing when no global default exists', () => {
+  it('returns undefined after clearing when no global default exists', () => {
     const context = createMockContext();
-    // Never set anything — both workspace and global are empty
+    // Never set anything, both workspace and global are empty
     expect(getActiveProject(context)).toBeUndefined();
   });
 });
@@ -219,7 +211,7 @@ describe('showProjectPicker', () => {
     expect(result).toEqual(sampleProject);
   });
 
-  it('should return undefined when user cancels', async () => {
+  it('returns undefined when user cancels', async () => {
     mockShowQuickPick.mockResolvedValue(undefined);
 
     const result = await showProjectPicker([sampleProject]);

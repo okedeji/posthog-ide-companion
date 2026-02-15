@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { PostHogSidebarProvider } from '../sidebar/sidebar-provider';
 import { buildProjectHtml, buildEmptyHtml } from '../sidebar/sidebar-html';
 import type { PostHogProject } from '../../auth/schemas';
+import type { WorkspaceInfo } from '../../ai/types';
 
 const sampleProject: PostHogProject = {
   id: 42,
@@ -9,6 +10,19 @@ const sampleProject: PostHogProject = {
   api_token: 'phc_test',
   organization: 'Test Org',
   uuid: 'uuid-42',
+};
+
+const sampleWorkspaceInfo: WorkspaceInfo = {
+  language: 'typescript',
+  frameworks: ['next.js', 'tailwind'],
+  frameworkVersions: { 'next.js': '14.2.0', tailwind: '3.4.1' },
+  frameworkDetails: { 'next.js': { router: 'app' } },
+  packageManager: 'pnpm',
+  testFrameworks: ['jest'],
+  buildTools: ['tsc', 'esbuild'],
+  projectStructure: 'single-package',
+  notablePatterns: [],
+  detectedAt: new Date().toISOString(),
 };
 
 /** Creates a minimal mock of a WebviewView for testing. */
@@ -47,10 +61,6 @@ function createMockWebviewView() {
 
 const mockExecuteCommand = vscode.commands.executeCommand as jest.Mock;
 
-// ---------------------------------------------------------------------------
-// Pure HTML builders
-// ---------------------------------------------------------------------------
-
 describe('buildProjectHtml', () => {
   it('should include project name, id, org, and region', () => {
     const html = buildProjectHtml(sampleProject, 'us');
@@ -61,7 +71,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('US');
   });
 
-  it('should include a Content Security Policy', () => {
+  it('includes a Content Security Policy', () => {
     const html = buildProjectHtml(sampleProject, 'us');
 
     expect(html).toContain('Content-Security-Policy');
@@ -77,7 +87,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain(`<script nonce="${nonceMatch![1]}"`);
   });
 
-  it('should show "Unknown" when region is undefined', () => {
+  it('shows "Unknown" when region is undefined', () => {
     const html = buildProjectHtml(sampleProject, undefined);
     expect(html).toContain('Unknown');
   });
@@ -87,7 +97,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('EU');
   });
 
-  it('should escape HTML in project name', () => {
+  it('escapes HTML in project name', () => {
     const html = buildProjectHtml(
       { ...sampleProject, name: '<img onerror=alert(1)>' },
       'us',
@@ -109,7 +119,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('Org &amp; &quot;Friends&quot;');
   });
 
-  it('should render the project initial as an avatar', () => {
+  it('renders the project initial as an avatar', () => {
     const html = buildProjectHtml(sampleProject, 'us');
     expect(html).toContain('<div class="avatar">M</div>');
   });
@@ -120,7 +130,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('status-dot');
   });
 
-  it('should show project ID in the details card', () => {
+  it('shows project ID in the details card', () => {
     const html = buildProjectHtml(sampleProject, 'us');
 
     expect(html).toContain('Project ID');
@@ -134,7 +144,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('openDashboard');
   });
 
-  it('should not include "Open in PostHog" for unknown regions', () => {
+  it('does not include "Open in PostHog" for unknown regions', () => {
     const html = buildProjectHtml(sampleProject, undefined);
 
     expect(html).not.toContain('Open in PostHog');
@@ -147,7 +157,7 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('Actions');
   });
 
-  it('should include switch project and sign out buttons', () => {
+  it('includes switch project and sign out buttons', () => {
     const html = buildProjectHtml(sampleProject, 'us');
 
     expect(html).toContain('Switch Project');
@@ -161,14 +171,75 @@ describe('buildProjectHtml', () => {
     expect(html).toContain('addEventListener');
   });
 
-  it('should include a footer', () => {
+  it('includes a footer', () => {
     const html = buildProjectHtml(sampleProject, 'us');
     expect(html).toContain('PostHog IDE Companion');
+  });
+
+  it('should show "Not detected" when no detection status', () => {
+    const html = buildProjectHtml(sampleProject, 'us');
+    expect(html).toContain('Workspace');
+    expect(html).toContain('Not detected');
+  });
+
+  it('shows "Analyzing" when detection is running', () => {
+    const html = buildProjectHtml(
+      sampleProject,
+      'us',
+      undefined,
+      undefined,
+      undefined,
+      'running',
+    );
+    expect(html).toContain('Analyzing');
+  });
+
+  it('should show language and frameworks when detection is complete', () => {
+    const html = buildProjectHtml(
+      sampleProject,
+      'us',
+      undefined,
+      undefined,
+      sampleWorkspaceInfo,
+      'complete',
+    );
+    expect(html).toContain('typescript');
+    expect(html).toContain('next.js');
+    expect(html).toContain('tailwind');
+  });
+
+  it('shows only language when no frameworks detected', () => {
+    const noFrameworks: WorkspaceInfo = {
+      ...sampleWorkspaceInfo,
+      frameworks: [],
+    };
+    const html = buildProjectHtml(
+      sampleProject,
+      'us',
+      undefined,
+      undefined,
+      noFrameworks,
+      'complete',
+    );
+    expect(html).toContain('typescript');
+    expect(html).not.toContain('&middot;');
+  });
+
+  it('should show "Detection failed" when detection failed', () => {
+    const html = buildProjectHtml(
+      sampleProject,
+      'us',
+      undefined,
+      undefined,
+      undefined,
+      'failed',
+    );
+    expect(html).toContain('Detection failed');
   });
 });
 
 describe('buildEmptyHtml', () => {
-  it('should show empty state message', () => {
+  it('shows empty state message', () => {
     const html = buildEmptyHtml();
     expect(html).toContain('No project selected');
   });
@@ -179,7 +250,7 @@ describe('buildEmptyHtml', () => {
     expect(html).toContain("default-src 'none'");
   });
 
-  it('should include a descriptive subtitle', () => {
+  it('includes a descriptive subtitle', () => {
     const html = buildEmptyHtml();
     expect(html).toContain('Sign in and select a project to get started');
   });
@@ -190,16 +261,12 @@ describe('buildEmptyHtml', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// WebviewViewProvider integration
-// ---------------------------------------------------------------------------
-
 describe('PostHogSidebarProvider', () => {
   beforeEach(() => {
     mockExecuteCommand.mockReset();
   });
 
-  it('should have the correct static view type', () => {
+  it('has the correct static view type', () => {
     expect(PostHogSidebarProvider.viewType).toBe('posthog.sidebar');
   });
 
@@ -213,7 +280,7 @@ describe('PostHogSidebarProvider', () => {
     expect(mockView.webview.html).toContain('My App');
   });
 
-  it('should enable scripts in webview options', () => {
+  it('enables scripts in webview options', () => {
     const provider = new PostHogSidebarProvider();
     const mockView = createMockWebviewView();
 
@@ -231,7 +298,7 @@ describe('PostHogSidebarProvider', () => {
     expect(mockView.webview.html).toContain('No project selected');
   });
 
-  it('should update webview when setProject is called after resolve', () => {
+  it('updates webview when setProject is called after resolve', () => {
     const provider = new PostHogSidebarProvider();
     const mockView = createMockWebviewView();
 
@@ -256,7 +323,7 @@ describe('PostHogSidebarProvider', () => {
     expect(mockExecuteCommand).toHaveBeenCalledWith('posthog.selectProject');
   });
 
-  it('should execute signOut on signOut message', () => {
+  it('executes signOut on signOut message', () => {
     const provider = new PostHogSidebarProvider();
     const mockView = createMockWebviewView();
 
@@ -281,6 +348,22 @@ describe('PostHogSidebarProvider', () => {
     });
 
     expect(mockOpenExternal).toHaveBeenCalled();
+  });
+
+  it('updates webview when setWorkspaceDetection is called', () => {
+    const provider = new PostHogSidebarProvider();
+    const mockView = createMockWebviewView();
+
+    provider.setProject(sampleProject, 'us');
+    provider.resolveWebviewView(mockView as unknown as vscode.WebviewView);
+    expect(mockView.webview.html).toContain('Not detected');
+
+    provider.setWorkspaceDetection('running');
+    expect(mockView.webview.html).toContain('Analyzing');
+
+    provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
+    expect(mockView.webview.html).toContain('typescript');
+    expect(mockView.webview.html).toContain('next.js');
   });
 
   it('should clean up on webview dispose', () => {

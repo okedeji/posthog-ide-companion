@@ -10,10 +10,6 @@ import type { AISelection } from '../types';
 import { AnthropicProvider } from '../providers/anthropic';
 import { OpenAIProvider } from '../providers/openai';
 
-// ---------------------------------------------------------------------------
-// Mock SecretStorage
-// ---------------------------------------------------------------------------
-
 function createMockSecretStorage() {
   const store = new Map<string, string>();
   return {
@@ -52,7 +48,7 @@ describe('createProvider', () => {
     expect(provider?.name).toBe('anthropic');
   });
 
-  it('should create an OpenAIProvider when openai is selected', () => {
+  it('creates an OpenAIProvider when openai is selected', () => {
     const selection: AISelection = {
       provider: 'openai',
       model: 'gpt-5.2',
@@ -75,7 +71,7 @@ describe('createProvider', () => {
     expect(provider).toBeUndefined();
   });
 
-  it('should return undefined when openai key is missing', () => {
+  it('returns undefined when openai key is missing', () => {
     const selection: AISelection = {
       provider: 'openai',
       model: 'gpt-5.2',
@@ -98,7 +94,7 @@ describe('hasApiKey', () => {
     expect(hasApiKey(config, 'openai')).toBe(false);
   });
 
-  it('should return true when openai key exists', () => {
+  it('returns true when openai key exists', () => {
     const config: AIConfig = {
       anthropicApiKey: undefined,
       openaiApiKey: 'sk-test',
@@ -119,12 +115,8 @@ describe('hasApiKey', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// SecretStorage operations
-// ---------------------------------------------------------------------------
-
 describe('getAIConfig', () => {
-  it('should return keys from secret storage', async () => {
+  it('returns keys from secret storage', async () => {
     const secrets = createMockSecretStorage();
     secrets._store.set('posthog.ai.anthropicApiKey', 'sk-ant-123');
     secrets._store.set('posthog.ai.openaiApiKey', 'sk-456');
@@ -144,7 +136,7 @@ describe('getAIConfig', () => {
     expect(config.openaiApiKey).toBeUndefined();
   });
 
-  it('should treat empty strings as undefined', async () => {
+  it('treats empty strings as undefined', async () => {
     const secrets = createMockSecretStorage();
     secrets._store.set('posthog.ai.anthropicApiKey', '');
 
@@ -166,7 +158,7 @@ describe('storeApiKey', () => {
     );
   });
 
-  it('should store openai key in secret storage', async () => {
+  it('stores openai key in secret storage', async () => {
     const secrets = createMockSecretStorage();
 
     await storeApiKey(secrets as never, 'openai', 'sk-new');

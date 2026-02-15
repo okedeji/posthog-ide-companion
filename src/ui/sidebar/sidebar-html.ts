@@ -2,11 +2,13 @@ import * as crypto from 'crypto';
 import type { PostHogProject } from '../../auth/schemas';
 import type { CloudRegion } from '../../auth/constants';
 import { CLOUD_URLS } from '../../auth/constants';
-import type { AISelection } from '../../ai/types';
+import type {
+  AISelection,
+  WorkspaceInfo,
+  DetectionStatus,
+} from '../../ai/types';
 
-// ---------------------------------------------------------------------------
 // Styles
-// ---------------------------------------------------------------------------
 
 const STYLES = /* css */ `
 * {
@@ -241,9 +243,7 @@ button svg {
   opacity: 0.6;
 }`;
 
-// ---------------------------------------------------------------------------
 // Inline SVG icons (14x14, currentColor)
-// ---------------------------------------------------------------------------
 
 const ICON_SWITCH = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3L3 6l3 3"/><path d="M3 6h10"/><path d="M10 13l3-3-3-3"/><path d="M13 10H3"/></svg>`;
 
@@ -261,18 +261,20 @@ const ICON_AI = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="current
 
 const ICON_CONFIGURE = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M13.5 8a5.5 5.5 0 01-.4 1.9l1.4 1.1-1 1.7-1.7-.5a5.5 5.5 0 01-1.6 1l-.4 1.8H8.2l-.4-1.8a5.5 5.5 0 01-1.6-1l-1.7.5-1-1.7 1.4-1.1A5.5 5.5 0 014.5 8c0-.7.1-1.3.4-1.9L3.5 5l1-1.7 1.7.5a5.5 5.5 0 011.6-1L8.2 1h1.6l.4 1.8a5.5 5.5 0 011.6 1l1.7-.5 1 1.7-1.4 1.1c.3.6.4 1.2.4 1.9z"/></svg>`;
 
-// ---------------------------------------------------------------------------
+const ICON_WORKSPACE = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l-4 3 4 3"/><path d="M10 3l4 3-4 3"/><path d="M8.5 2l-1 7"/></svg>`;
+
 // HTML builders
-// ---------------------------------------------------------------------------
 
 /**
  * Builds the project details HTML with a Content Security Policy.
  * Uses a nonce to allow only our inline script.
  *
- * @param project      - The active PostHog project.
- * @param region       - The cloud region (e.g. "us", "eu").
- * @param aiSelection  - The active AI provider/model, or undefined if not configured.
- * @param aiModelLabel - Human-readable model label (e.g. "Claude Sonnet 4.5").
+ * @param project         - The active PostHog project.
+ * @param region          - The cloud region (e.g. "us", "eu").
+ * @param aiSelection     - The active AI provider/model, or undefined if not configured.
+ * @param aiModelLabel    - Human-readable model label (e.g. "Claude Sonnet 4.5").
+ * @param workspaceInfo   - Detected workspace info, or undefined.
+ * @param detectionStatus - Current detection status.
  * @returns Complete HTML document string.
  */
 export function buildProjectHtml(
@@ -280,12 +282,14 @@ export function buildProjectHtml(
   region: CloudRegion | undefined,
   aiSelection?: AISelection,
   aiModelLabel?: string,
+  workspaceInfo?: WorkspaceInfo,
+  detectionStatus?: DetectionStatus,
 ): string {
   const nonce = getNonce();
   const regionLabel = region?.toUpperCase() ?? 'Unknown';
   const initial = project.name.charAt(0).toUpperCase();
   const dashboardUrl = region
-    ? `${CLOUD_URLS[region]}/project/${String(project.id)}`
+    ? `${CLOUD_URLS[region]}/project/${project.id}`
     : undefined;
 
   return /* html */ `<!DOCTYPE html>
@@ -327,7 +331,7 @@ export function buildProjectHtml(
         <span class="card-icon">${ICON_ID}</span>
         <span class="card-label">Project ID</span>
       </span>
-      <span class="card-value">${String(project.id)}</span>
+      <span class="card-value">${project.id}</span>
     </div>
     <div class="card-row">
       <span class="card-left">
@@ -335,6 +339,13 @@ export function buildProjectHtml(
         <span class="card-label">AI Model</span>
       </span>
       <span class="card-value">${aiSelection ? escapeHtml(aiModelLabel ?? aiSelection.model) : 'Not configured'}</span>
+    </div>
+    <div class="card-row">
+      <span class="card-left">
+        <span class="card-icon">${ICON_WORKSPACE}</span>
+        <span class="card-label">Workspace</span>
+      </span>
+      <span class="card-value">${formatDetectionValue(detectionStatus, workspaceInfo)}</span>
     </div>
   </div>
 
@@ -427,9 +438,35 @@ export function buildEmptyHtml(): string {
 </html>`;
 }
 
-// ---------------------------------------------------------------------------
+// Format helpers
+
+/** Formats the workspace detection value for display in the sidebar card. */
+function formatDetectionValue(
+  status: DetectionStatus | undefined,
+  info: WorkspaceInfo | undefined,
+): string {
+  switch (status) {
+    case 'running':
+      return 'Analyzing\u2026';
+    case 'failed':
+      return 'Detection failed';
+    case 'complete': {
+      if (!info) {
+        return 'Detected';
+      }
+      const lang = escapeHtml(info.language);
+      if (info.frameworks.length === 0) {
+        return lang;
+      }
+      const frameworks = info.frameworks.map(escapeHtml).join(', ');
+      return `${lang} &middot; ${frameworks}`;
+    }
+    default:
+      return 'Not detected';
+  }
+}
+
 // Utilities
-// ---------------------------------------------------------------------------
 
 /** Escapes HTML special characters to prevent XSS in template interpolation. */
 export function escapeHtml(text: string): string {

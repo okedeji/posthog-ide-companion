@@ -85,6 +85,7 @@ export async function runAgentLoop(
       })),
     });
 
+    // TODO: run sequentially once we add write tools (file edits, env mutations)
     const results = await Promise.all(
       response.calls.map(async (call) => {
         emit({ type: 'tool_call_start', call });
@@ -152,7 +153,7 @@ export async function runAgentLoop(
     conversation.push({ role: 'user', content: results });
   }
 
-  // Iteration limit reached — force a text summary
+  // Hit the iteration limit, force a text summary
   return forceTextResponse(
     provider,
     conversation,

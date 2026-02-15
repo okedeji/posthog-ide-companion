@@ -3,10 +3,6 @@ import type { LLMProvider } from '../provider';
 import type { LLMMessage, LLMResponse, LLMGenerateOptions } from '../types';
 import type { TokenCounter } from '../tokenizer';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const USAGE = { inputTokens: 10, outputTokens: 5 };
 
 function createMockProvider(summaryText: string): LLMProvider {
@@ -49,10 +45,6 @@ function buildConversation(pairs: number): LLMMessage[] {
   return messages;
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('compactIfNeeded', () => {
   it('should return messages unchanged when under token limit', async () => {
     const messages = buildConversation(3);
@@ -67,7 +59,7 @@ describe('compactIfNeeded', () => {
     expect(result).toHaveLength(messages.length);
   });
 
-  it('should compact when over token limit', async () => {
+  it('compacts when over token limit', async () => {
     const messages = buildConversation(10); // 20 messages
     const counter = createMockTokenCounter(5000); // 20 × 5000 = 100K tokens
     const provider = createMockProvider('Summary of earlier conversation');
@@ -102,7 +94,7 @@ describe('compactIfNeeded', () => {
     expect(result[result.length - 2]?.content).toBe('User message 8');
   });
 
-  it('should not compact when not enough messages to split', async () => {
+  it('does not compact when not enough messages to split', async () => {
     const messages = buildConversation(2); // 4 messages
     const counter = createMockTokenCounter(50_000); // Over limit
     const provider = createMockProvider('Should not be called');
@@ -128,7 +120,7 @@ describe('compactIfNeeded', () => {
     expect(result).toHaveLength(messages.length);
   });
 
-  it('should maintain role alternation after compaction', async () => {
+  it('maintains role alternation after compaction', async () => {
     const messages = buildConversation(10);
     const counter = createMockTokenCounter(10_000);
     const provider = createMockProvider('Summary of conversation');
@@ -187,7 +179,7 @@ describe('compactIfNeeded', () => {
     expect(result[result.length - 1]?.content).toBe('Recent response 2');
   });
 
-  it('should use fallback summary when provider returns tool_calls', async () => {
+  it('uses fallback summary when provider returns tool_calls', async () => {
     const messages = buildConversation(6);
     const counter = createMockTokenCounter(20_000);
     const provider: LLMProvider = {

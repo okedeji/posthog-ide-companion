@@ -1,7 +1,7 @@
 import { AnthropicProvider } from '../providers/anthropic';
 import type { LLMMessage } from '../types';
 
-// Mock the SDK — replace constructor with a factory returning a mock client
+// Mock the SDK so we can control what the client returns
 const mockCreate = jest.fn();
 const mockStream = jest.fn();
 jest.mock('@anthropic-ai/sdk', () => ({
@@ -26,7 +26,7 @@ describe('AnthropicProvider', () => {
   });
 
   describe('generate', () => {
-    it('should return text response when stop_reason is end_turn', async () => {
+    it('returns text response when stop_reason is end_turn', async () => {
       mockCreate.mockResolvedValue({
         stop_reason: 'end_turn',
         content: [{ type: 'text', text: 'Hello there!' }],
@@ -69,7 +69,7 @@ describe('AnthropicProvider', () => {
       }
     });
 
-    it('should pass system prompt and temperature to the SDK', async () => {
+    it('passes system prompt and temperature to the SDK', async () => {
       mockCreate.mockResolvedValue({
         stop_reason: 'end_turn',
         content: [{ type: 'text', text: 'ok' }],
@@ -139,7 +139,7 @@ describe('AnthropicProvider', () => {
       expect(toolResultMsg.content[0].tool_use_id).toBe('tu_1');
     });
 
-    it('should concatenate multiple text blocks', async () => {
+    it('concatenates multiple text blocks', async () => {
       mockCreate.mockResolvedValue({
         stop_reason: 'end_turn',
         content: [
@@ -198,7 +198,7 @@ describe('AnthropicProvider', () => {
       });
     });
 
-    it('should skip non-text-delta events', async () => {
+    it('skips non-text-delta events', async () => {
       const events = [
         { type: 'message_start', message: {} },
         {

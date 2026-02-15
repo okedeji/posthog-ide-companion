@@ -25,9 +25,7 @@ type CallbackServer = {
   close: () => void;
 };
 
-// ---------------------------------------------------------------------------
-// PKCE helpers
-// ---------------------------------------------------------------------------
+// PKCE
 
 function generateCodeVerifier(): string {
   return crypto.randomBytes(32).toString('base64url');
@@ -36,10 +34,6 @@ function generateCodeVerifier(): string {
 function generateCodeChallenge(verifier: string): string {
   return crypto.createHash('sha256').update(verifier).digest('base64url');
 }
-
-// ---------------------------------------------------------------------------
-// Localhost callback server
-// ---------------------------------------------------------------------------
 
 function startCallbackServer(): Promise<CallbackServer> {
   return new Promise((resolve, reject) => {
@@ -96,6 +90,7 @@ function startCallbackServer(): Promise<CallbackServer> {
         });
       });
 
+    // Port 0 = OS picks a free port
     server.listen(0, '127.0.0.1', () => {
       const address = server.address();
       if (!address || typeof address === 'string') {
@@ -112,10 +107,6 @@ function startCallbackServer(): Promise<CallbackServer> {
     });
   });
 }
-
-// ---------------------------------------------------------------------------
-// Dynamic Client Registration
-// ---------------------------------------------------------------------------
 
 async function registerDcrClient(
   cloudUrl: string,
@@ -134,16 +125,12 @@ async function registerDcrClient(
   });
 
   if (!response.ok) {
-    throw new Error(`DCR registration failed: ${String(response.status)}`);
+    throw new Error(`DCR registration failed: ${response.status}`);
   }
 
   const data: unknown = await response.json();
   return DcrResponseSchema.parse(data);
 }
-
-// ---------------------------------------------------------------------------
-// Token exchange
-// ---------------------------------------------------------------------------
 
 async function exchangeCodeForToken(
   cloudUrl: string,
@@ -165,35 +152,23 @@ async function exchangeCodeForToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Token exchange failed: ${String(response.status)}`);
+    throw new Error(`Token exchange failed: ${response.status}`);
   }
 
   const data: unknown = await response.json();
   return OAuthTokenResponseSchema.parse(data);
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
- * Performs a full OAuth PKCE flow with Dynamic Client Registration.
- *
- * 1. Starts a localhost callback server on a random port
- * 2. Registers with PostHog DCR to get a client_id
- * 3. Opens the browser for user authorization
- * 4. Waits for the callback with the authorization code
- * 5. Exchanges the code for an access token
- *
- * @param region - The PostHog cloud region (US or EU).
- * @returns The token response and client ID for future refreshes.
+ * Full OAuth PKCE flow: start callback server → DCR registration →
+ * browser authorization → code exchange → return tokens.
  */
 export async function performOAuthFlow(
   region: CloudRegion,
 ): Promise<OAuthResult> {
   const cloudUrl = CLOUD_URLS[region];
   const server = await startCallbackServer();
-  const redirectUri = `http://localhost:${String(server.port)}${OAUTH_CALLBACK_PATH}`;
+  const redirectUri = `http://localhost:${server.port}${OAUTH_CALLBACK_PATH}`;
 
   try {
     const dcr = await registerDcrClient(cloudUrl, redirectUri);
@@ -228,14 +203,6 @@ export async function performOAuthFlow(
   }
 }
 
-/**
- * Refreshes an expired access token using a refresh token.
- *
- * @param region - The PostHog cloud region.
- * @param refreshToken - The stored refresh token.
- * @param clientId - The DCR client ID from the original auth flow.
- * @returns A new token response with fresh access and refresh tokens.
- */
 export async function refreshAccessToken(
   region: CloudRegion,
   refreshToken: string,
@@ -254,16 +221,12 @@ export async function refreshAccessToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Token refresh failed: ${String(response.status)}`);
+    throw new Error(`Token refresh failed: ${response.status}`);
   }
 
   const data: unknown = await response.json();
   return OAuthTokenResponseSchema.parse(data);
 }
-
-// ---------------------------------------------------------------------------
-// HTML pages for the callback server
-// ---------------------------------------------------------------------------
 
 function buildSuccessPage(): string {
   return [

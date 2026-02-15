@@ -15,16 +15,17 @@ import {
   getActiveAISelection,
   getModelLabel,
 } from './ai/selection-manager';
-import { getAIConfig, hasApiKey } from './ai/config';
+import { getAIConfig, hasApiKey, createProvider } from './ai/config';
+import {
+  detectWorkspace,
+  getStoredWorkspaceInfo,
+  setStoredWorkspaceInfo,
+  isWorkspaceInfoStale,
+} from './ai/workspace-detection';
 import { createLogger } from './utils/logger';
 import type { Logger } from './utils/logger';
 
-/**
- * Extension entry point. Called by VSCode when the extension activates.
- * Wires up auth, sidebar, status bar, and commands. No business logic here.
- *
- * @param context - The extension context provided by VSCode.
- */
+/** Extension entry point — wires up auth, sidebar, status bar, and commands. */
 export function activate(context: vscode.ExtensionContext): void {
   const channel = vscode.window.createOutputChannel('PostHog');
   const logger = createLogger(channel);
@@ -102,6 +103,12 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('posthog.detectWorkspace', () => {
+      void triggerWorkspaceDetection(context, sidebarProvider, logger);
+    }),
+  );
+
   // Initial state check
   void initializeState(
     context,
@@ -116,9 +123,7 @@ export function deactivate(): void {
   // no-op: lifecycle managed by context.subscriptions
 }
 
-// ---------------------------------------------------------------------------
 // Command handlers
-// ---------------------------------------------------------------------------
 
 async function handleSignIn(
   context: vscode.ExtensionContext,
@@ -207,7 +212,7 @@ async function handleSelectProject(
 
     const selected = await showProjectPicker(projects);
     if (!selected) {
-      // User cancelled — restore previous state
+      // User cancelled, restore previous state
       const existing = getActiveProject(context);
       if (existing) {
         updateStatusBar(statusBar, 'project', existing.name);
@@ -222,9 +227,9 @@ async function handleSelectProject(
     updateStatusBar(statusBar, 'project', selected.name);
     await setContextKeys(true, true);
 
-    logger.info(`Selected project: ${selected.name} (${String(selected.id)})`);
+    logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
-    // Auto-trigger AI setup if not yet configured
+    // Kick off AI setup if not configured yet (which in turn triggers workspace detection)
     const aiSelection = getActiveAISelection(context);
     if (!aiSelection) {
       await handleConfigureAI(context, sidebarProvider, logger);
@@ -250,6 +255,11 @@ async function handleConfigureAI(
       const label = getModelLabel(selection);
       sidebarProvider.setAISelection(selection, label);
       logger.info(`AI configured: ${selection.provider} (${label})`);
+
+      // Auto-trigger workspace detection if not yet run
+      if (!getStoredWorkspaceInfo(context)) {
+        void triggerWorkspaceDetection(context, sidebarProvider, logger);
+      }
     } else {
       sidebarProvider.setAISelection(undefined);
     }
@@ -260,10 +270,6 @@ async function handleConfigureAI(
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
 
 async function initializeState(
   context: vscode.ExtensionContext,
@@ -300,6 +306,21 @@ async function initializeState(
       sidebarProvider.setAISelection(aiSelection, label);
       if (hasApiKey(aiConfig, aiSelection.provider)) {
         logger.info(`Restored AI: ${aiSelection.provider} (${label})`);
+
+        // Auto-detect workspace if not yet run, or prompt if stale
+        const workspaceInfo = getStoredWorkspaceInfo(context);
+        if (!workspaceInfo) {
+          void triggerWorkspaceDetection(context, sidebarProvider, logger);
+        } else {
+          sidebarProvider.setWorkspaceDetection('complete', workspaceInfo);
+          if (isWorkspaceInfoStale(workspaceInfo)) {
+            void promptStaleWorkspaceRedetection(
+              context,
+              sidebarProvider,
+              logger,
+            );
+          }
+        }
       } else {
         logger.info(`AI configured as ${label} but API key is missing`);
       }
@@ -309,9 +330,135 @@ async function initializeState(
   }
 }
 
-// ---------------------------------------------------------------------------
-// UI helpers
-// ---------------------------------------------------------------------------
+/** Runs LLM-powered workspace detection — non-blocking, stores result on success. */
+async function triggerWorkspaceDetection(
+  context: vscode.ExtensionContext,
+  sidebarProvider: PostHogSidebarProvider,
+  logger: Logger,
+): Promise<void> {
+  const aiSelection = getActiveAISelection(context);
+  if (!aiSelection) {
+    return;
+  }
+
+  const aiConfig = await getAIConfig(context.secrets);
+  const provider = createProvider(aiConfig, aiSelection);
+  if (!provider) {
+    return;
+  }
+
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return;
+  }
+
+  const workspaceRoot = workspaceFolder.uri.fsPath;
+
+  // Temporary status bar item, disposed in the finally block below
+  const detectionStatus = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    0,
+  );
+  detectionStatus.text = '$(loading~spin) PostHog: Analyzing workspace…';
+  detectionStatus.tooltip = 'Workspace detection in progress';
+  detectionStatus.show();
+  sidebarProvider.setWorkspaceDetection('running');
+
+  try {
+    const info = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'PostHog: Analyzing workspace',
+        cancellable: false,
+      },
+      async (progress) => {
+        return detectWorkspace(provider, workspaceRoot, {
+          onEvent: (event) => {
+            if (event.type === 'tool_call_start') {
+              const toolName = event.call.name;
+              const arg = String(
+                event.call.arguments['path'] ??
+                  event.call.arguments['pattern'] ??
+                  '',
+              );
+              const message = formatToolProgress(toolName, arg);
+              progress.report({ message });
+              detectionStatus.text = `$(loading~spin) PostHog: ${message}`;
+            }
+          },
+          onLog: (level, message) => {
+            switch (level) {
+              case 'error':
+                logger.error(`[detection] ${message}`);
+                break;
+              case 'warn':
+              case 'info':
+                logger.info(`[detection] ${message}`);
+                break;
+              case 'debug':
+                logger.debug(`[detection] ${message}`);
+                break;
+            }
+          },
+        });
+      },
+    );
+
+    if (info) {
+      await setStoredWorkspaceInfo(context, info);
+      sidebarProvider.setWorkspaceDetection('complete', info);
+      logger.info(
+        `Workspace detected: ${info.language} (${info.frameworks.join(', ') || 'no frameworks'})`,
+      );
+    } else {
+      sidebarProvider.setWorkspaceDetection('failed');
+      logger.info('Workspace detection returned no results');
+      void vscode.window.showWarningMessage(
+        'PostHog: Could not analyze workspace. You can retry via Command Palette → "PostHog: Detect Workspace".',
+      );
+    }
+  } catch (err) {
+    sidebarProvider.setWorkspaceDetection('failed');
+    logger.error('Workspace detection failed', err);
+    void vscode.window.showWarningMessage(
+      'PostHog: Workspace detection failed. You can retry via Command Palette → "PostHog: Detect Workspace".',
+    );
+  } finally {
+    detectionStatus.dispose();
+  }
+}
+
+/** Prompts user to re-analyze if workspace info is older than 7 days. */
+async function promptStaleWorkspaceRedetection(
+  context: vscode.ExtensionContext,
+  sidebarProvider: PostHogSidebarProvider,
+  logger: Logger,
+): Promise<void> {
+  const action = await vscode.window.showInformationMessage(
+    'PostHog: Workspace info may be outdated. Re-analyze?',
+    'Re-analyze',
+    'Dismiss',
+  );
+
+  if (action === 'Re-analyze') {
+    void triggerWorkspaceDetection(context, sidebarProvider, logger);
+  }
+}
+
+function formatToolProgress(toolName: string, arg: string): string {
+  switch (toolName) {
+    case 'readFile':
+      return arg ? `Reading ${arg}` : 'Reading file';
+    case 'listDirectory':
+      return arg === '.' ? 'Listing root directory' : `Listing ${arg}`;
+    case 'searchCode':
+      return arg ? `Searching for "${arg}"` : 'Searching code';
+    case 'checkEnvKeys':
+      return 'Checking environment';
+    default:
+      return `Running ${toolName}`;
+  }
+}
 
 type StatusBarState = 'signedOut' | 'noProject' | 'project';
 

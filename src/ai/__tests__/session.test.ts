@@ -9,10 +9,6 @@ import type {
   AgentEvent,
 } from '../types';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const USAGE = { inputTokens: 10, outputTokens: 5 };
 
 function createMockProvider(
@@ -61,10 +57,6 @@ const mockExecutor = async (call: ToolCall): Promise<string> => {
   return 'Unknown tool';
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('Session', () => {
   it('should maintain conversation history across turns', async () => {
     const provider = createMockProvider([
@@ -91,7 +83,7 @@ describe('Session', () => {
     expect(session.messages[3]?.content).toBe('Sure, what do you need?');
   });
 
-  it('should return agent result from send', async () => {
+  it('returns agent result from send', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'Done!', usage: USAGE },
     ]);
@@ -126,7 +118,7 @@ describe('Session', () => {
     expect(session.isRunning).toBe(false);
   });
 
-  it('should clear history on reset', async () => {
+  it('clears history on reset', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'Hello', usage: USAGE },
     ]);
@@ -163,7 +155,7 @@ describe('Session', () => {
     await p1;
   });
 
-  it('should return a snapshot with correct state', async () => {
+  it('returns a snapshot with correct state', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'Hi!', usage: USAGE },
     ]);
@@ -186,7 +178,7 @@ describe('Session', () => {
     expect(session.id.length).toBeGreaterThan(0);
   });
 
-  it('should forward events to the callback', async () => {
+  it('forwards events to the callback', async () => {
     const events: AgentEvent[] = [];
     const provider = createMockProvider([
       { type: 'text', content: 'Hello', usage: USAGE },
@@ -232,7 +224,7 @@ describe('Session', () => {
     );
   });
 
-  it('should not include toolActivity when no tools were called', async () => {
+  it('does not include toolActivity when no tools were called', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'No tools needed', usage: USAGE },
     ]);
@@ -261,7 +253,7 @@ describe('Session', () => {
   });
 
   describe('compaction', () => {
-    it('should not compact when compaction is not configured', async () => {
+    it('does not compact when compaction is not configured', async () => {
       // Build enough responses for many turns
       const responses = Array.from({ length: 10 }, (_, i) => ({
         type: 'text' as const,
@@ -272,7 +264,7 @@ describe('Session', () => {
       const provider = createMockProvider(responses);
       const session = new Session(provider);
 
-      // Send 10 messages — no compaction configured, all should be kept
+      // No compaction configured, all messages should be kept
       for (let i = 0; i < 10; i++) {
         await session.send(`Message ${i + 1}`);
       }
@@ -281,7 +273,7 @@ describe('Session', () => {
     });
 
     it('should compact LLM messages when over token limit', async () => {
-      // Provide plenty of responses — some are consumed by compaction
+      // Provide plenty of responses since some are consumed by compaction
       // summary calls, some by the agent loop. Use generous count to
       // avoid "ran out of responses" regardless of exact compaction timing.
       const responses: LLMResponse[] = Array.from({ length: 20 }, () => ({
@@ -298,7 +290,7 @@ describe('Session', () => {
         },
       });
 
-      // Build up conversation — compaction will fire during these sends
+      // Build up enough conversation to trigger compaction
       for (let i = 0; i < 6; i++) {
         await session.send('M'.repeat(2000));
       }
@@ -308,7 +300,7 @@ describe('Session', () => {
       expect(session.messages).toHaveLength(12); // 6 user + 6 assistant
     });
 
-    it('should preserve UI message history even after LLM compaction', async () => {
+    it('preserves UI message history even after LLM compaction', async () => {
       const responses: LLMResponse[] = Array.from({ length: 20 }, () => ({
         type: 'text' as const,
         content: 'A'.repeat(5000),
@@ -318,7 +310,7 @@ describe('Session', () => {
       const provider = createMockProvider(responses);
       const session = new Session(provider, {
         compaction: {
-          maxTokens: 1000, // Very low — triggers compaction immediately
+          maxTokens: 1000, // low enough to trigger compaction immediately
           preserveRecentPairs: 1,
         },
       });

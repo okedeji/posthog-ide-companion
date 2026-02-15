@@ -4,12 +4,8 @@ import { getAIConfig, hasApiKey, storeApiKey, removeApiKey } from './config';
 
 const WORKSPACE_STATE_KEY = 'posthog.aiSelection';
 
-// ---------------------------------------------------------------------------
-// Available models per provider
 // Adding a new provider? Add a models array and update getModelsForProvider().
-// ---------------------------------------------------------------------------
 
-/** Anthropic model options shown in the quick pick. */
 export const ANTHROPIC_MODELS: ModelOption[] = [
   {
     id: 'claude-sonnet-4-5-20250929',
@@ -69,7 +65,6 @@ export const OPENAI_MODELS: ModelOption[] = [
   },
 ];
 
-/** Returns model options for a given provider. */
 export function getModelsForProvider(provider: AIProviderName): ModelOption[] {
   switch (provider) {
     case 'anthropic':
@@ -78,10 +73,6 @@ export function getModelsForProvider(provider: AIProviderName): ModelOption[] {
       return OPENAI_MODELS;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Workspace state helpers
-// ---------------------------------------------------------------------------
 
 export function getActiveAISelection(
   context: vscode.ExtensionContext,
@@ -102,21 +93,7 @@ export async function clearActiveAISelection(
   await context.workspaceState.update(WORKSPACE_STATE_KEY, undefined);
 }
 
-// ---------------------------------------------------------------------------
-// Setup flow (provider → model → API key)
-// ---------------------------------------------------------------------------
-
-/**
- * Runs the full AI setup flow: pick provider, pick model, enter API key.
- *
- * Triggered from three entry points:
- * 1. Automatically after project selection on first setup.
- * 2. Via the command palette (`posthog.configureAI`).
- * 3. Via the "Configure AI" / "Set Up AI" button in the sidebar.
- *
- * @param context - Extension context (workspace state + secrets).
- * @returns The selected AI config, or undefined if cancelled.
- */
+/** Runs the full AI setup flow: pick provider → pick model → enter API key. */
 export async function showAISetupFlow(
   context: vscode.ExtensionContext,
 ): Promise<AISelection | undefined> {
@@ -209,10 +186,6 @@ export async function showAIReconfigureMenu(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Quick picks (internal)
-// ---------------------------------------------------------------------------
-
 async function showProviderPicker(): Promise<AIProviderName | undefined> {
   const items: (vscode.QuickPickItem & { provider: AIProviderName })[] = [
     {
@@ -254,10 +227,6 @@ export async function showModelPicker(
   return picked?.modelId;
 }
 
-// ---------------------------------------------------------------------------
-// API key management
-// ---------------------------------------------------------------------------
-
 export async function promptAndStoreApiKey(
   secrets: vscode.SecretStorage,
   provider: AIProviderName,
@@ -291,7 +260,6 @@ export async function promptAndStoreApiKey(
   return true;
 }
 
-/** Falls back to the raw model ID if not in the known model lists. */
 export function getModelLabel(selection: AISelection): string {
   const models = getModelsForProvider(selection.provider);
   const match = models.find((m) => m.id === selection.model);

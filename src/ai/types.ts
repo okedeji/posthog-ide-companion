@@ -1,9 +1,5 @@
-// ---------------------------------------------------------------------------
-// LLM types — shared across all providers, the agent loop, and features.
+// LLM types shared across providers, the agent loop, and features.
 // No runtime dependencies. Import types from here, not from SDK packages.
-// ---------------------------------------------------------------------------
-
-// --- Messages ---
 
 /** Role for LLM conversation messages. */
 export type LLMRole = 'user' | 'assistant';
@@ -25,8 +21,6 @@ export type LLMMessage = {
   content: string | LLMContentBlock[];
 };
 
-// --- Options ---
-
 /** Options for a single LLM generate/stream call. */
 export type LLMGenerateOptions = {
   model?: string;
@@ -35,8 +29,6 @@ export type LLMGenerateOptions = {
   systemPrompt?: string;
   tools?: ToolDefinition[];
 };
-
-// --- Responses ---
 
 /** Token usage from a single LLM call. */
 export type TokenUsage = {
@@ -57,8 +49,6 @@ export type LLMStreamEvent =
   | { type: 'text'; text: string }
   | { type: 'done'; content: string; usage: TokenUsage };
 
-// --- Tools ---
-
 /** JSON Schema definition for a tool the LLM can call. */
 export type ToolDefinition = {
   name: string;
@@ -77,8 +67,6 @@ export type ToolCall = {
 
 /** Executes a tool call and returns the result as a string. */
 export type ToolExecutor = (call: ToolCall) => Promise<string>;
-
-// --- Agent Events ---
 
 /** Emitted when the agent loop starts a new iteration. */
 export type AgentIterationStartEvent = {
@@ -132,8 +120,6 @@ export type AgentEvent =
 /** Callback for receiving agent events. Non-blocking, fire-and-forget. */
 export type AgentEventCallback = (event: AgentEvent) => void;
 
-// --- Consent ---
-
 /** User's decision when a tool requires consent before execution. */
 export type ConsentDecision =
   | { action: 'approve' }
@@ -142,8 +128,6 @@ export type ConsentDecision =
 
 /** Called when a tool with `requiresConsent` is invoked. The loop pauses until resolved. */
 export type ConsentCallback = (call: ToolCall) => Promise<ConsentDecision>;
-
-// --- Agent ---
 
 /** Options for the agent loop. */
 export type AgentLoopOptions = {
@@ -165,8 +149,6 @@ export type AgentResult = {
   iterations: number;
 };
 
-// --- AI Selection ---
-
 /** Provider identifier. */
 export type AIProviderName = 'anthropic' | 'openai';
 
@@ -183,8 +165,6 @@ export type ModelOption = {
   description: string;
   default?: boolean;
 };
-
-// --- Session ---
 
 /** Configuration for creating a new session. */
 export type SessionOptions = {
@@ -239,8 +219,6 @@ export type SessionSnapshot = {
   lastActiveAt: number;
 };
 
-// --- Compaction ---
-
 /**
  * Configuration for conversation history compaction.
  * When the total token count of LLM messages exceeds `maxTokens`,
@@ -262,7 +240,38 @@ export type CompactionOptions = {
   preserveRecentPairs?: number;
 };
 
-// --- System Prompts ---
+/** Status of the workspace detection process. */
+export type DetectionStatus = 'idle' | 'running' | 'complete' | 'failed';
+
+/**
+ * Structured information about the workspace, produced by LLM-powered detection.
+ * Stored in workspace state and injected into session prompts.
+ */
+export type WorkspaceInfo = {
+  /** Primary language (e.g. "typescript", "python", "rust"). */
+  language: string;
+  /** Detected frameworks (e.g. ["next.js", "tailwind"]). */
+  frameworks: string[];
+  /** Version of each framework, keyed by framework name. */
+  frameworkVersions: Record<string, string>;
+  /**
+   * Granular per-framework details the flat `frameworks` array cannot express.
+   * E.g. `{ "next.js": { "router": "app", "version": "14.2.0" } }`.
+   */
+  frameworkDetails: Record<string, Record<string, string>>;
+  /** Package manager (e.g. "pnpm", "npm", "yarn", "pip", "cargo"). */
+  packageManager: string | null;
+  /** Test frameworks (e.g. ["jest", "vitest", "pytest"]). */
+  testFrameworks: string[];
+  /** Build tools (e.g. ["esbuild", "tsc", "webpack"]). */
+  buildTools: string[];
+  /** Project structure classification. */
+  projectStructure: 'monorepo' | 'single-package' | 'multi-package' | 'unknown';
+  /** Notable patterns or conventions worth knowing (e.g. "uses barrel exports"). */
+  notablePatterns: string[];
+  /** ISO timestamp when detection was last run. */
+  detectedAt: string;
+};
 
 /** A named section of a composable system prompt. */
 export type PromptSection = {

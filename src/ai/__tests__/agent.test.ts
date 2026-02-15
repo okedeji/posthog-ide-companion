@@ -10,10 +10,6 @@ import type {
   ConsentDecision,
 } from '../types';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const USAGE = { inputTokens: 10, outputTokens: 5 };
 
 function createMockProvider(
@@ -62,12 +58,8 @@ const mockExecutor = async (call: ToolCall): Promise<string> => {
   return 'Unknown tool';
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('runAgentLoop', () => {
-  it('should return immediately when provider responds with text', async () => {
+  it('returns immediately when provider responds with text', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'Hello!', usage: USAGE },
     ]);
@@ -84,7 +76,7 @@ describe('runAgentLoop', () => {
     expect(result.totalUsage).toEqual(USAGE);
   });
 
-  it('should execute tool calls and continue until text response', async () => {
+  it('executes tool calls and continues until text response', async () => {
     const provider = createMockProvider([
       {
         type: 'tool_calls',
@@ -145,7 +137,7 @@ describe('runAgentLoop', () => {
     expect(toolResultMsg?.role).toBe('user');
   });
 
-  it('should handle multiple tool calls in parallel', async () => {
+  it('handles multiple tool calls in parallel', async () => {
     const executedCalls: string[] = [];
     const parallelExecutor = async (call: ToolCall): Promise<string> => {
       executedCalls.push(call.name);
@@ -175,8 +167,8 @@ describe('runAgentLoop', () => {
     expect(executedCalls).toHaveLength(2);
   });
 
-  it('should force a text summary when max iterations is exceeded', async () => {
-    // All responses are tool calls — will hit the limit
+  it('forces a text summary when max iterations is exceeded', async () => {
+    // All responses are tool calls, so we'll hit the iteration limit
     const toolResponse: LLMResponse = {
       type: 'tool_calls',
       calls: [{ id: 'tc1', name: 'readFile', arguments: { path: 'loop.ts' } }],
@@ -202,7 +194,7 @@ describe('runAgentLoop', () => {
     expect(result.iterations).toBe(2);
   });
 
-  it('should accumulate usage across iterations', async () => {
+  it('accumulates usage across iterations', async () => {
     const provider = createMockProvider([
       {
         type: 'tool_calls',
@@ -266,10 +258,6 @@ describe('runAgentLoop', () => {
     expect(capturedOptions?.tools).toEqual(SAMPLE_TOOLS);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Agent events
-// ---------------------------------------------------------------------------
 
 describe('agent events', () => {
   it('should emit iteration_start, text_response, and complete for text response', async () => {
@@ -380,7 +368,7 @@ describe('agent events', () => {
     }
   });
 
-  it('should work normally when no onEvent callback is provided', async () => {
+  it('works without an onEvent callback', async () => {
     const provider = createMockProvider([
       { type: 'text', content: 'Hello!', usage: USAGE },
     ]);
@@ -395,7 +383,7 @@ describe('agent events', () => {
     expect(result.content).toBe('Hello!');
   });
 
-  it('should emit error event and re-throw when LLM call fails', async () => {
+  it('emits error event and re-throws when LLM call fails', async () => {
     const events: AgentEvent[] = [];
     const provider: LLMProvider = {
       name: 'mock',
@@ -475,10 +463,6 @@ describe('agent events', () => {
     }
   });
 });
-
-// ---------------------------------------------------------------------------
-// Consent
-// ---------------------------------------------------------------------------
 
 const CONSENT_TOOLS: ToolDefinition[] = [
   {
@@ -627,7 +611,7 @@ describe('consent', () => {
     }
   });
 
-  it('should auto-reject when no consent handler is configured', async () => {
+  it('auto-rejects when no consent handler is configured', async () => {
     const executedCalls: string[] = [];
     const trackingExecutor = async (call: ToolCall): Promise<string> => {
       executedCalls.push(call.name);

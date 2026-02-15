@@ -1,10 +1,6 @@
 import * as vscode from 'vscode';
 import { PostHogAuthProvider } from '../provider';
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-
 jest.mock('../oauth', () => ({
   performOAuthFlow: jest.fn(),
   refreshAccessToken: jest.fn(),
@@ -87,10 +83,6 @@ function seedAuth(
   secrets._store.set('posthog.account', values.account);
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('PostHogAuthProvider', () => {
   let secrets: ReturnType<typeof createMockSecretStorage>;
   let provider: PostHogAuthProvider;
@@ -108,9 +100,7 @@ describe('PostHogAuthProvider', () => {
     provider.dispose();
   });
 
-  // -----------------------------------------------------------------------
   // getSessions
-  // -----------------------------------------------------------------------
 
   describe('getSessions', () => {
     it('should return empty array when no token is stored', async () => {
@@ -118,7 +108,7 @@ describe('PostHogAuthProvider', () => {
       expect(sessions).toEqual([]);
     });
 
-    it('should return a session when a valid token exists', async () => {
+    it('returns a session when a valid token exists', async () => {
       seedAuth(secrets);
 
       const sessions = await provider.getSessions();
@@ -151,7 +141,7 @@ describe('PostHogAuthProvider', () => {
       expect(sessions).toHaveLength(1);
     });
 
-    it('should return empty array when refresh fails', async () => {
+    it('returns empty array when refresh fails', async () => {
       seedAuth(secrets, {
         expiresAt: String(Date.now() - 1000), // expired
       });
@@ -172,7 +162,7 @@ describe('PostHogAuthProvider', () => {
       expect(sessions[0]?.account.label).toBe('PostHog User');
     });
 
-    it('should return fallback account when account data is invalid JSON', async () => {
+    it('returns fallback account when account data is invalid JSON', async () => {
       seedAuth(secrets);
       secrets._store.set('posthog.account', 'not-json');
 
@@ -185,9 +175,7 @@ describe('PostHogAuthProvider', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
   // createSession
-  // -----------------------------------------------------------------------
 
   describe('createSession', () => {
     it('should store tokens after successful OAuth flow', async () => {
@@ -230,7 +218,7 @@ describe('PostHogAuthProvider', () => {
       expect(secrets.store).toHaveBeenCalledWith('posthog.cloudRegion', 'us');
     });
 
-    it('should throw when cloud region selection is cancelled', async () => {
+    it('throws when cloud region selection is cancelled', async () => {
       mockShowQuickPick.mockResolvedValueOnce(undefined);
 
       await expect(provider.createSession([])).rejects.toThrow(
@@ -263,12 +251,10 @@ describe('PostHogAuthProvider', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
   // removeSession
-  // -----------------------------------------------------------------------
 
   describe('removeSession', () => {
-    it('should clear all stored secrets', async () => {
+    it('clears all stored secrets', async () => {
       seedAuth(secrets);
       // Prime the cached token by calling getSessions first
       await provider.getSessions();
@@ -294,12 +280,10 @@ describe('PostHogAuthProvider', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
   // getValidToken
-  // -----------------------------------------------------------------------
 
   describe('getValidToken', () => {
-    it('should return token and region when authenticated', async () => {
+    it('returns token and region when authenticated', async () => {
       seedAuth(secrets);
 
       const result = await provider.getValidToken();
@@ -315,7 +299,7 @@ describe('PostHogAuthProvider', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when region is invalid', async () => {
+    it('returns undefined when region is invalid', async () => {
       seedAuth(secrets, { region: 'invalid' });
 
       const result = await provider.getValidToken();
@@ -323,9 +307,7 @@ describe('PostHogAuthProvider', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
   // getCloudRegion
-  // -----------------------------------------------------------------------
 
   describe('getCloudRegion', () => {
     it('should return the stored region', async () => {
@@ -335,7 +317,7 @@ describe('PostHogAuthProvider', () => {
       expect(region).toBe('eu');
     });
 
-    it('should return undefined when no region is stored', async () => {
+    it('returns undefined when no region is stored', async () => {
       const region = await provider.getCloudRegion();
       expect(region).toBeUndefined();
     });
@@ -348,12 +330,8 @@ describe('PostHogAuthProvider', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Token refresh
-  // -----------------------------------------------------------------------
-
   describe('token refresh', () => {
-    it('should refresh and store new tokens when expired', async () => {
+    it('refreshes and store new tokens when expired', async () => {
       seedAuth(secrets, {
         expiresAt: String(Date.now() - 1000),
       });
@@ -390,9 +368,9 @@ describe('PostHogAuthProvider', () => {
       expect(secrets.delete).toHaveBeenCalledWith('posthog.accessToken');
     });
 
-    it('should treat token as expired when within 60s buffer', async () => {
+    it('treats token as expired when within 60s buffer', async () => {
       seedAuth(secrets, {
-        // Expires in 30s — within the 60s early-refresh buffer
+        // Expires in 30s, within the 60s early-refresh buffer
         expiresAt: String(Date.now() + 30_000),
       });
 

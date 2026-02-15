@@ -11,7 +11,7 @@ describe('ANTHROPIC_MODELS', () => {
     expect(ANTHROPIC_MODELS).toHaveLength(5);
   });
 
-  it('should have exactly one default model', () => {
+  it('has exactly one default model', () => {
     const defaults = ANTHROPIC_MODELS.filter((m) => m.default);
     expect(defaults).toHaveLength(1);
   });
@@ -22,7 +22,7 @@ describe('ANTHROPIC_MODELS', () => {
     expect(defaultModel?.label).toBe('Claude Sonnet 4.5');
   });
 
-  it('should have unique model IDs', () => {
+  it('has unique model IDs', () => {
     const ids = ANTHROPIC_MODELS.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -36,7 +36,7 @@ describe('ANTHROPIC_MODELS', () => {
 });
 
 describe('OPENAI_MODELS', () => {
-  it('should have 5 models', () => {
+  it('has 5 models', () => {
     expect(OPENAI_MODELS).toHaveLength(5);
   });
 
@@ -45,7 +45,7 @@ describe('OPENAI_MODELS', () => {
     expect(defaults).toHaveLength(1);
   });
 
-  it('should have GPT-5.2 as the default', () => {
+  it('has GPT-5.2 as the default', () => {
     const defaultModel = OPENAI_MODELS.find((m) => m.default);
     expect(defaultModel?.id).toBe('gpt-5.2');
     expect(defaultModel?.label).toBe('GPT-5.2');
@@ -56,7 +56,7 @@ describe('OPENAI_MODELS', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('should have a label and description for every model', () => {
+  it('has a label and description for every model', () => {
     for (const model of OPENAI_MODELS) {
       expect(model.label).toBeTruthy();
       expect(model.description).toBeTruthy();
@@ -69,7 +69,7 @@ describe('getModelsForProvider', () => {
     expect(getModelsForProvider('anthropic')).toBe(ANTHROPIC_MODELS);
   });
 
-  it('should return OpenAI models for openai', () => {
+  it('returns OpenAI models for openai', () => {
     expect(getModelsForProvider('openai')).toBe(OPENAI_MODELS);
   });
 });
@@ -84,7 +84,7 @@ describe('getModelLabel', () => {
     expect(getModelLabel(selection)).toBe('Claude Sonnet 4.5');
   });
 
-  it('should return the label for a known OpenAI model', () => {
+  it('returns the label for a known OpenAI model', () => {
     const selection: AISelection = {
       provider: 'openai',
       model: 'gpt-5.2',

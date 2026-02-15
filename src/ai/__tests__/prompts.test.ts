@@ -5,7 +5,7 @@ describe('FOUNDATION_PROMPT', () => {
     expect(FOUNDATION_PROMPT).toContain('AI assistant');
   });
 
-  it('should contain core behavior rules', () => {
+  it('contains core behavior rules', () => {
     expect(FOUNDATION_PROMPT).toContain('Explain your work');
     expect(FOUNDATION_PROMPT).toContain('Ask for clarification');
     expect(FOUNDATION_PROMPT).toContain('Summarize when done');
@@ -18,7 +18,7 @@ describe('FOUNDATION_PROMPT', () => {
 });
 
 describe('SystemPromptBuilder', () => {
-  it('should include the foundation prompt by default', () => {
+  it('includes the foundation prompt by default', () => {
     const builder = createSystemPromptBuilder();
     const prompt = builder.build();
     expect(prompt).toContain('AI assistant');
@@ -39,7 +39,7 @@ describe('SystemPromptBuilder', () => {
     );
   });
 
-  it('should place foundation before all other sections', () => {
+  it('places foundation before all other sections', () => {
     const builder = createSystemPromptBuilder();
     builder.addSection({
       key: 'feature',
@@ -63,7 +63,7 @@ describe('SystemPromptBuilder', () => {
     expect(prompt).not.toContain('Original');
   });
 
-  it('should not allow removing the foundation section', () => {
+  it('does not allow removing the foundation section', () => {
     const builder = createSystemPromptBuilder();
     const removed = builder.removeSection('foundation');
 
@@ -80,7 +80,7 @@ describe('SystemPromptBuilder', () => {
     expect(builder.build()).not.toContain('Temporary');
   });
 
-  it('should return false when removing a nonexistent section', () => {
+  it('returns false when removing a nonexistent section', () => {
     const builder = createSystemPromptBuilder();
     expect(builder.removeSection('nonexistent')).toBe(false);
   });
@@ -97,7 +97,7 @@ describe('SystemPromptBuilder', () => {
     );
   });
 
-  it('should join sections with double newlines', () => {
+  it('joins sections with double newlines', () => {
     const builder = createSystemPromptBuilder();
     builder.addSection({ key: 'extra', content: 'EXTRA', priority: 10 });
 
@@ -114,7 +114,7 @@ describe('SystemPromptBuilder', () => {
     expect(result).toBe(builder);
   });
 
-  it('should return registered section keys', () => {
+  it('returns registered section keys', () => {
     const builder = createSystemPromptBuilder();
     builder.addSection({ key: 'errors', content: 'Error analysis' });
     builder.addSection({ key: 'chat', content: 'Chat mode' });

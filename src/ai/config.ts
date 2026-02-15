@@ -31,6 +31,7 @@ export async function getAIConfig(
     secrets.get(SECRET_KEYS.openai),
   ]);
 
+  // Normalize empty strings to undefined
   return {
     anthropicApiKey: anthropicApiKey || undefined,
     openaiApiKey: openaiApiKey || undefined,

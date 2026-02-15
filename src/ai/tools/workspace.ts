@@ -80,7 +80,7 @@ const EXCLUDED_DIRS = [
   'target',
   '.gradle',
   // Rust
-  // (also 'target' — already listed)
+  // (also 'target', already listed)
   // Go
   'vendor',
   // Ruby
@@ -95,9 +95,7 @@ const EXCLUDED_DIRS = [
   '.vscode',
 ];
 
-// ---------------------------------------------------------------------------
 // Tool definitions (JSON Schema for the LLM)
-// ---------------------------------------------------------------------------
 
 /** Tool definitions for workspace exploration. Shared across features. */
 export const WORKSPACE_TOOLS: ToolDefinition[] = [
@@ -203,9 +201,7 @@ export const WORKSPACE_TOOLS: ToolDefinition[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
 // Tool executor factory
-// ---------------------------------------------------------------------------
 
 /**
  * Creates a tool executor bound to a workspace root directory.
@@ -235,9 +231,7 @@ export function createWorkspaceExecutor(workspaceRoot: string): ToolExecutor {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Tool implementations (internal)
-// ---------------------------------------------------------------------------
 
 async function executeReadFile(
   root: string,
@@ -269,7 +263,7 @@ async function executeReadFile(
     }
 
     if (stat.size > MAX_FILE_SIZE) {
-      return `Error: file is too large (${String(stat.size)} bytes, max ${String(MAX_FILE_SIZE)})`;
+      return `Error: file is too large (${stat.size} bytes, max ${MAX_FILE_SIZE})`;
     }
 
     return await fs.readFile(resolved, 'utf-8');
@@ -312,7 +306,8 @@ async function executeSearchCode(
   }
 
   try {
-    const grepArgs = ['-rn', `--max-count=${String(MAX_SEARCH_RESULTS)}`];
+    // TODO: grep isn't available on Windows, consider bundling a wasm alternative
+    const grepArgs = ['-rn', `--max-count=${MAX_SEARCH_RESULTS}`];
 
     if (fileGlob) {
       grepArgs.push(`--include=${fileGlob}`);
@@ -350,9 +345,7 @@ async function executeSearchCode(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Env file tools (safe .env interaction)
-// ---------------------------------------------------------------------------
 
 /**
  * Checks which keys are present or missing in a .env file.
@@ -393,7 +386,7 @@ async function executeCheckEnvKeys(
       }
     }
   } catch {
-    // File doesn't exist — all keys are missing
+    // File doesn't exist, all keys are missing
   }
 
   const results: Record<string, 'present' | 'missing'> = {};
@@ -443,7 +436,7 @@ async function executeSetEnvValues(
     const content = await fs.readFile(resolved, 'utf-8');
     lines = content.split('\n');
   } catch {
-    // File doesn't exist yet — will be created below
+    // File doesn't exist yet, will be created below
   }
 
   const updatedKeys = new Set<string>();
@@ -486,7 +479,7 @@ async function ensureGitignoreCoverage(
   try {
     content = await fs.readFile(gitignorePath, 'utf-8');
   } catch {
-    // .gitignore doesn't exist — will create it
+    // .gitignore doesn't exist, will create it
   }
 
   const lines = content.split('\n');
@@ -511,9 +504,7 @@ async function ensureGitignoreCoverage(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Utilities (internal)
-// ---------------------------------------------------------------------------
 
 /**
  * Resolves a relative path within the workspace root, following symlinks.
@@ -545,7 +536,7 @@ async function resolveSafePath(
 
     return realPath;
   } catch {
-    // File doesn't exist — fall back to the lexical check which already passed.
+    // File doesn't exist yet; the lexical check passed so allow it through.
     // readFile/listDirectory will produce their own ENOENT errors downstream.
     return resolved;
   }

@@ -2,35 +2,18 @@ import type { LLMProvider } from './provider';
 import type { LLMMessage, CompactionOptions } from './types';
 import type { TokenCounter } from './tokenizer';
 
-// ---------------------------------------------------------------------------
-// Conversation compaction — keeps context window usage under control.
-//
-// When the conversation grows long, older messages are summarized into a
-// single "conversation so far" message while recent messages are preserved verbatim.
-//
-// The algorithm:
-//   1. Count tokens across all LLM messages.
-//   2. If under the threshold → return messages unchanged.
-//   3. Otherwise, split into "old" and "recent" (preserveRecentPairs).
-//   4. Send old messages to the LLM for summarization.
-//   5. Return: [summary message, assistant ack, ...recent messages].
-// ---------------------------------------------------------------------------
+// When the conversation grows long, older messages are summarized into a single
+// "conversation so far" message while recent messages are preserved verbatim.
 
-/** Default compaction thresholds. */
+// Tuned down from 100k after hitting context errors in testing.
 const DEFAULT_MAX_TOKENS = 80_000;
 const DEFAULT_PRESERVE_RECENT_PAIRS = 4;
-
-/** Maximum tokens for the summary response itself. */
 const SUMMARY_MAX_TOKENS = 1024;
 
 /**
  * Checks whether compaction is needed and compacts if so.
- *
- * @param provider     - LLM provider used to generate the summary.
- * @param messages     - Current LLM conversation messages.
- * @param tokenCounter - Token counter for estimating message sizes.
- * @param options      - Compaction thresholds.
- * @returns The (possibly compacted) message array.
+ * Splits at `preserveRecentPairs` boundary, summarizes old messages,
+ * and prepends [summary, assistant acknowledgment, ...recent messages].
  */
 export async function compactIfNeeded(
   provider: LLMProvider,
@@ -51,7 +34,7 @@ export async function compactIfNeeded(
   // Number of individual messages to keep (each pair = user + assistant)
   const preserveCount = preservePairs * 2;
 
-  // Not enough messages to compact — keep everything
+  // Not enough messages to compact, keep everything
   if (messages.length <= preserveCount) {
     return messages;
   }
@@ -76,10 +59,6 @@ export async function compactIfNeeded(
   ];
 }
 
-/**
- * Asks the LLM to produce a concise summary of the conversation so far.
- * Uses a dedicated system prompt to keep the summary focused and compact.
- */
 async function summarizeMessages(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -106,11 +85,7 @@ async function summarizeMessages(
   return `[Conversation Summary]\n${buildFallbackSummary(messages)}`;
 }
 
-/**
- * Formats messages into a readable transcript for the summarizer.
- * Strips tool use/result blocks down to just the tool name and result
- * to keep the summary request small.
- */
+/** Strips tool blocks down to names/results to keep the summary request small. */
 function formatMessagesForSummary(messages: LLMMessage[]): string {
   const lines: string[] = ['Please summarize the following conversation:', ''];
 
@@ -142,10 +117,7 @@ function formatMessagesForSummary(messages: LLMMessage[]): string {
   return lines.join('\n');
 }
 
-/**
- * Builds a basic fallback summary when the LLM can't summarize.
- * Extracts user messages only — good enough to preserve context.
- */
+/** Fallback: extracts user messages when the LLM can't summarize properly. */
 function buildFallbackSummary(messages: LLMMessage[]): string {
   const userMessages = messages
     .filter((m) => m.role === 'user')
@@ -164,7 +136,6 @@ function buildFallbackSummary(messages: LLMMessage[]): string {
   return `The user discussed: ${userMessages.map((m) => truncate(m, 100)).join('; ')}`;
 }
 
-/** Truncates a string to `max` characters with an ellipsis. */
 function truncate(text: string, max: number): string {
   if (text.length <= max) {
     return text;
@@ -172,7 +143,6 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max - 1) + '…';
 }
 
-/** System prompt for the summarization call. */
 const SUMMARY_SYSTEM_PROMPT = [
   'You are a conversation summarizer.',
   'Produce a concise summary of the conversation below.',

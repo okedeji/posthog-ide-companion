@@ -51,16 +51,9 @@ export class PostHogAuthProvider
     this._onDidChangeSessions.dispose();
   }
 
-  // -----------------------------------------------------------------------
   // AuthenticationProvider interface
-  // -----------------------------------------------------------------------
 
-  /**
-   * Returns existing sessions. Attempts token refresh if expired.
-   *
-   * @param _scopes - Unused (we use a fixed scope set).
-   * @returns Array with zero or one session.
-   */
+  /** Returns existing sessions. Attempts token refresh if expired. */
   async getSessions(
     _scopes?: readonly string[],
   ): Promise<vscode.AuthenticationSession[]> {
@@ -90,13 +83,7 @@ export class PostHogAuthProvider
     ];
   }
 
-  /**
-   * Creates a new session via OAuth PKCE + DCR flow.
-   * Prompts for cloud region, opens browser, stores tokens.
-   *
-   * @param _scopes - Unused.
-   * @returns The new authentication session.
-   */
+  /** Creates a new session via OAuth PKCE + DCR. Opens browser, stores tokens. */
   async createSession(
     _scopes: readonly string[],
   ): Promise<vscode.AuthenticationSession> {
@@ -149,11 +136,7 @@ export class PostHogAuthProvider
     return session;
   }
 
-  /**
-   * Removes a session — clears all stored secrets and fires event.
-   *
-   * @param _sessionId - Unused (we only have one session).
-   */
+  /** Clears all stored secrets and fires the session-removed event. */
   async removeSession(_sessionId: string): Promise<void> {
     const previousToken = this._cachedToken;
     const account = await this.readAccount();
@@ -179,16 +162,7 @@ export class PostHogAuthProvider
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Public helpers (used by other modules)
-  // -----------------------------------------------------------------------
-
-  /**
-   * Returns a valid access token and region, refreshing if needed.
-   * Returns `undefined` if not signed in or refresh fails.
-   *
-   * @returns Token and region, or undefined.
-   */
+  /** Returns a valid access token and region, refreshing if needed. */
   async getValidToken(): Promise<
     { token: string; region: CloudRegion } | undefined
   > {
@@ -217,10 +191,6 @@ export class PostHogAuthProvider
     }
     return region;
   }
-
-  // -----------------------------------------------------------------------
-  // Private helpers
-  // -----------------------------------------------------------------------
 
   private async askForCloudRegion(): Promise<CloudRegion | undefined> {
     const items: (vscode.QuickPickItem & {
