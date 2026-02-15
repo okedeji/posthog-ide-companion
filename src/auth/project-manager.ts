@@ -10,13 +10,6 @@ const ACTIVE_PROJECT_KEY = 'posthog.activeProject';
 /** Global state key for the default project (fallback). */
 const DEFAULT_PROJECT_KEY = 'posthog.defaultProject';
 
-/**
- * Fetches all projects the authenticated user has access to.
- *
- * @param token - OAuth access token.
- * @param region - PostHog cloud region.
- * @returns Array of projects.
- */
 export async function fetchProjects(
   token: string,
   region: CloudRegion,
@@ -36,12 +29,6 @@ export async function fetchProjects(
   return parsed.results;
 }
 
-/**
- * Shows a quick pick for the user to select a project.
- *
- * @param projects - Available projects to choose from.
- * @returns The selected project, or undefined if cancelled.
- */
 export async function showProjectPicker(
   projects: PostHogProject[],
 ): Promise<PostHogProject | undefined> {
@@ -59,13 +46,7 @@ export async function showProjectPicker(
   return picked?.project;
 }
 
-/**
- * Returns the active project for the current workspace.
- * Falls back to the global default if no workspace selection.
- *
- * @param context - Extension context for state access.
- * @returns The active project, or undefined.
- */
+/** Falls back to the global default if no workspace-specific selection. */
 export function getActiveProject(
   context: vscode.ExtensionContext,
 ): PostHogProject | undefined {
@@ -77,13 +58,7 @@ export function getActiveProject(
   return context.globalState.get<PostHogProject>(DEFAULT_PROJECT_KEY);
 }
 
-/**
- * Sets the active project for the current workspace.
- * Also updates the global default.
- *
- * @param context - Extension context for state access.
- * @param project - The project to set as active.
- */
+/** Also updates the global default so new workspaces inherit the choice. */
 export async function setActiveProject(
   context: vscode.ExtensionContext,
   project: PostHogProject,
@@ -92,11 +67,6 @@ export async function setActiveProject(
   await context.globalState.update(DEFAULT_PROJECT_KEY, project);
 }
 
-/**
- * Clears the active project for the current workspace.
- *
- * @param context - Extension context for state access.
- */
 export async function clearActiveProject(
   context: vscode.ExtensionContext,
 ): Promise<void> {

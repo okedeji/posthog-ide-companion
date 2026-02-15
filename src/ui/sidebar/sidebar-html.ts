@@ -1,7 +1,8 @@
 import * as crypto from 'crypto';
-import type { PostHogProject } from './schemas';
-import type { CloudRegion } from './constants';
-import { CLOUD_URLS } from './constants';
+import type { PostHogProject } from '../../auth/schemas';
+import type { CloudRegion } from '../../auth/constants';
+import { CLOUD_URLS } from '../../auth/constants';
+import type { AISelection } from '../../ai/types';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -256,6 +257,10 @@ const ICON_ID = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="current
 
 const ICON_STATUS = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 4-6"/><circle cx="14" cy="4" r="1.5"/></svg>`;
 
+const ICON_AI = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.5 3.5L13 7l-3.5 1.5L8 12l-1.5-3.5L3 7l3.5-1.5z"/><path d="M12 12l.75 1.5L14.5 14.25 12.75 15 12 16.5l-.75-1.5L9.5 14.25l1.75-.75z"/></svg>`;
+
+const ICON_CONFIGURE = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M13.5 8a5.5 5.5 0 01-.4 1.9l1.4 1.1-1 1.7-1.7-.5a5.5 5.5 0 01-1.6 1l-.4 1.8H8.2l-.4-1.8a5.5 5.5 0 01-1.6-1l-1.7.5-1-1.7 1.4-1.1A5.5 5.5 0 014.5 8c0-.7.1-1.3.4-1.9L3.5 5l1-1.7 1.7.5a5.5 5.5 0 011.6-1L8.2 1h1.6l.4 1.8a5.5 5.5 0 011.6 1l1.7-.5 1 1.7-1.4 1.1c.3.6.4 1.2.4 1.9z"/></svg>`;
+
 // ---------------------------------------------------------------------------
 // HTML builders
 // ---------------------------------------------------------------------------
@@ -264,21 +269,24 @@ const ICON_STATUS = /* html */ `<svg viewBox="0 0 16 16" fill="none" stroke="cur
  * Builds the project details HTML with a Content Security Policy.
  * Uses a nonce to allow only our inline script.
  *
- * @param project - The active PostHog project.
- * @param region - The cloud region (e.g. "us", "eu").
+ * @param project      - The active PostHog project.
+ * @param region       - The cloud region (e.g. "us", "eu").
+ * @param aiSelection  - The active AI provider/model, or undefined if not configured.
+ * @param aiModelLabel - Human-readable model label (e.g. "Claude Sonnet 4.5").
  * @returns Complete HTML document string.
  */
 export function buildProjectHtml(
   project: PostHogProject,
-  region: string | undefined,
+  region: CloudRegion | undefined,
+  aiSelection?: AISelection,
+  aiModelLabel?: string,
 ): string {
   const nonce = getNonce();
   const regionLabel = region?.toUpperCase() ?? 'Unknown';
   const initial = project.name.charAt(0).toUpperCase();
-  const dashboardUrl =
-    region && region in CLOUD_URLS
-      ? `${CLOUD_URLS[region as CloudRegion]}/project/${String(project.id)}`
-      : undefined;
+  const dashboardUrl = region
+    ? `${CLOUD_URLS[region]}/project/${String(project.id)}`
+    : undefined;
 
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -321,11 +329,19 @@ export function buildProjectHtml(
       </span>
       <span class="card-value">${String(project.id)}</span>
     </div>
+    <div class="card-row">
+      <span class="card-left">
+        <span class="card-icon">${ICON_AI}</span>
+        <span class="card-label">AI Model</span>
+      </span>
+      <span class="card-value">${aiSelection ? escapeHtml(aiModelLabel ?? aiSelection.model) : 'Not configured'}</span>
+    </div>
   </div>
 
   <div class="section-label">Actions</div>
   <div class="actions">
-    <button class="btn-primary" id="switchProject">${ICON_SWITCH} Switch Project</button>${
+    <button class="btn-primary" id="switchProject">${ICON_SWITCH} Switch Project</button>
+    <button class="btn-link" id="configureAI">${ICON_CONFIGURE} ${aiSelection ? 'Configure AI' : 'Set Up AI'}</button>${
       dashboardUrl
         ? `
     <button class="btn-link" id="openDashboard">${ICON_EXTERNAL} Open in PostHog</button>`
@@ -342,6 +358,8 @@ export function buildProjectHtml(
       .addEventListener('click', () => vscode.postMessage({ command: 'switchProject' }));
     document.getElementById('signOut')
       .addEventListener('click', () => vscode.postMessage({ command: 'signOut' }));
+    document.getElementById('configureAI')
+      .addEventListener('click', () => vscode.postMessage({ command: 'configureAI' }));
     const openBtn = document.getElementById('openDashboard');
     if (openBtn) {
       openBtn.addEventListener('click', () => vscode.postMessage({ command: 'openDashboard' }));

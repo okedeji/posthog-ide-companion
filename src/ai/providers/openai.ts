@@ -1,0 +1,205 @@
+import OpenAI from 'openai';
+import type { LLMProvider } from '../provider';
+import type {
+  LLMMessage,
+  LLMContentBlock,
+  LLMGenerateOptions,
+  LLMResponse,
+  LLMStreamEvent,
+  ToolDefinition,
+  ToolCall,
+  TokenUsage,
+} from '../types';
+
+/** Default model when none is specified during setup. */
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.2';
+
+/**
+ * LLM provider backed by the OpenAI Responses API.
+ *
+ * Wraps the `openai` SDK. Converts our normalized message and tool
+ * types to OpenAI's Responses API format and back. Does not run tool loops.
+ */
+export class OpenAIProvider implements LLMProvider {
+  readonly name = 'openai';
+  private readonly client: OpenAI;
+
+  /** @param apiKey - OpenAI API key (e.g. "sk-..."). */
+  constructor(apiKey: string) {
+    this.client = new OpenAI({ apiKey });
+  }
+
+  async generate(
+    messages: LLMMessage[],
+    options?: LLMGenerateOptions,
+  ): Promise<LLMResponse> {
+    const response = await this.client.responses.create({
+      model: options?.model ?? DEFAULT_OPENAI_MODEL,
+      input: toOpenAIInput(messages),
+      ...(options?.systemPrompt && { instructions: options.systemPrompt }),
+      ...(options?.tools?.length && {
+        tools: options.tools.map(toOpenAITool),
+      }),
+      ...(options?.temperature !== undefined && {
+        temperature: options.temperature,
+      }),
+      ...(options?.maxTokens && {
+        max_output_tokens: options.maxTokens,
+      }),
+    });
+
+    const usage: TokenUsage = {
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+    };
+
+    const functionCalls = response.output.filter(
+      (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
+        item.type === 'function_call',
+    );
+
+    if (functionCalls.length > 0) {
+      return {
+        type: 'tool_calls',
+        calls: mapFunctionCalls(functionCalls),
+        usage,
+      };
+    }
+
+    return {
+      type: 'text',
+      content: response.output_text,
+      usage,
+    };
+  }
+
+  async *stream(
+    messages: LLMMessage[],
+    options?: LLMGenerateOptions,
+  ): AsyncIterable<LLMStreamEvent> {
+    const stream = await this.client.responses.create({
+      model: options?.model ?? DEFAULT_OPENAI_MODEL,
+      input: toOpenAIInput(messages),
+      stream: true,
+      ...(options?.systemPrompt && { instructions: options.systemPrompt }),
+      ...(options?.temperature !== undefined && {
+        temperature: options.temperature,
+      }),
+      ...(options?.maxTokens && {
+        max_output_tokens: options.maxTokens,
+      }),
+    });
+
+    let fullText = '';
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+
+    for await (const event of stream) {
+      if (event.type === 'response.output_text.delta') {
+        fullText += event.delta;
+        yield { type: 'text', text: event.delta };
+      } else if (event.type === 'response.completed') {
+        usage = {
+          inputTokens: event.response.usage?.input_tokens ?? 0,
+          outputTokens: event.response.usage?.output_tokens ?? 0,
+        };
+      }
+    }
+
+    yield { type: 'done', content: fullText, usage };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Input conversion (internal)
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts our message format to OpenAI Responses API input.
+ *
+ * - User/assistant text messages become EasyInputMessage items
+ * - Assistant tool_use blocks become function_call items
+ * - User tool_result blocks become function_call_output items
+ */
+function toOpenAIInput(messages: LLMMessage[]): OpenAI.Responses.ResponseInput {
+  const input: OpenAI.Responses.ResponseInputItem[] = [];
+
+  for (const msg of messages) {
+    if (typeof msg.content === 'string') {
+      input.push({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content,
+      });
+      continue;
+    }
+
+    for (const block of msg.content) {
+      pushContentBlock(input, block, msg.role);
+    }
+  }
+
+  return input;
+}
+
+function pushContentBlock(
+  input: OpenAI.Responses.ResponseInputItem[],
+  block: LLMContentBlock,
+  role: string,
+): void {
+  switch (block.type) {
+    case 'text':
+      input.push({
+        role: role === 'assistant' ? 'assistant' : 'user',
+        content: block.text,
+      });
+      break;
+    case 'tool_use':
+      input.push({
+        type: 'function_call',
+        id: block.id,
+        name: block.name,
+        arguments: JSON.stringify(block.input),
+        call_id: block.id,
+      } as OpenAI.Responses.ResponseInputItem);
+      break;
+    case 'tool_result':
+      input.push({
+        type: 'function_call_output',
+        call_id: block.toolUseId,
+        output: block.content,
+      } as OpenAI.Responses.ResponseInputItem);
+      break;
+  }
+}
+
+function toOpenAITool(tool: ToolDefinition): OpenAI.Responses.FunctionTool {
+  return {
+    type: 'function',
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+    strict: false,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Response extraction (internal)
+// ---------------------------------------------------------------------------
+
+function mapFunctionCalls(
+  calls: OpenAI.Responses.ResponseFunctionToolCall[],
+): ToolCall[] {
+  return calls.map((call) => ({
+    id: call.id ?? call.call_id ?? '',
+    name: call.name,
+    arguments: safeParse(call.arguments),
+  }));
+}
+
+/** Parses JSON arguments, falling back to a _raw key so failures are traceable. */
+function safeParse(json: string): Record<string, unknown> {
+  try {
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return { _raw: json };
+  }
+}

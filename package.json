@@ -72,6 +72,10 @@
       {
         "command": "posthog.selectProject",
         "title": "PostHog: Select Project"
+      },
+      {
+        "command": "posthog.configureAI",
+        "title": "PostHog: Configure AI Provider"
       }
     ]
   },
@@ -92,14 +96,27 @@
   },
   "jest": {
     "collectCoverage": true,
-    "coveragePathIgnorePatterns": ["dist"],
+    "coveragePathIgnorePatterns": [
+      "dist"
+    ],
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
     "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$",
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json"],
-    "modulePathIgnorePatterns": ["<rootDir>/dist/"],
-    "testPathIgnorePatterns": ["/dist/", "/node_modules/"],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/dist/"
+    ],
+    "testPathIgnorePatterns": [
+      "/dist/",
+      "/node_modules/"
+    ],
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^vscode$": "<rootDir>/__mocks__/vscode.ts"

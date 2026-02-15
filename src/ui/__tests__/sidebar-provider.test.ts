@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { PostHogSidebarProvider } from '../sidebar-provider';
-import { buildProjectHtml, buildEmptyHtml } from '../sidebar-html';
-import type { PostHogProject } from '../schemas';
+import { PostHogSidebarProvider } from '../sidebar/sidebar-provider';
+import { buildProjectHtml, buildEmptyHtml } from '../sidebar/sidebar-html';
+import type { PostHogProject } from '../../auth/schemas';
 
 const sampleProject: PostHogProject = {
   id: 42,

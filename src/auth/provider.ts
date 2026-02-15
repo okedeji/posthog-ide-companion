@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { CloudRegion } from './constants';
 import type { PostHogAccount } from './schemas';
 import { AUTH_PROVIDER_ID, CLOUD_URLS } from './constants';
-import { AccountSchema } from './schemas';
+import { AccountSchema, UserInfoSchema } from './schemas';
 import { performOAuthFlow, refreshAccessToken } from './oauth';
 
 /** Keys used to persist auth state in VSCode SecretStorage. */
@@ -210,11 +210,6 @@ export class PostHogAuthProvider
     return { token: session.accessToken, region };
   }
 
-  /**
-   * Returns the stored cloud region, or undefined if not signed in.
-   *
-   * @returns The cloud region.
-   */
   async getCloudRegion(): Promise<CloudRegion | undefined> {
     const region = await this.secretStorage.get(SECRET_KEYS.region);
     if (region !== 'us' && region !== 'eu') {
@@ -332,15 +327,15 @@ export class PostHogAuthProvider
         return { id: 'unknown', label: 'PostHog User' };
       }
 
-      const data = (await response.json()) as {
-        distinct_id?: string;
-        email?: string;
-        first_name?: string;
-      };
+      const raw: unknown = await response.json();
+      const parsed = UserInfoSchema.safeParse(raw);
+      if (!parsed.success) {
+        return { id: 'unknown', label: 'PostHog User' };
+      }
 
       return {
-        id: data.distinct_id ?? 'unknown',
-        label: data.first_name ?? data.email ?? 'PostHog User',
+        id: parsed.data.distinct_id ?? 'unknown',
+        label: parsed.data.first_name ?? parsed.data.email ?? 'PostHog User',
       };
     } catch {
       return { id: 'unknown', label: 'PostHog User' };

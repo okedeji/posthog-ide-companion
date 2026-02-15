@@ -1,0 +1,190 @@
+import {
+  createProvider,
+  hasApiKey,
+  getAIConfig,
+  storeApiKey,
+  removeApiKey,
+} from '../config';
+import type { AIConfig } from '../config';
+import type { AISelection } from '../types';
+import { AnthropicProvider } from '../providers/anthropic';
+import { OpenAIProvider } from '../providers/openai';
+
+// ---------------------------------------------------------------------------
+// Mock SecretStorage
+// ---------------------------------------------------------------------------
+
+function createMockSecretStorage() {
+  const store = new Map<string, string>();
+  return {
+    get: jest.fn(async (key: string) => store.get(key)),
+    store: jest.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+    delete: jest.fn(async (key: string) => {
+      store.delete(key);
+    }),
+    onDidChange: jest.fn(),
+    _store: store,
+  };
+}
+
+describe('createProvider', () => {
+  const fullConfig: AIConfig = {
+    anthropicApiKey: 'sk-ant-test',
+    openaiApiKey: 'sk-test',
+  };
+
+  const emptyConfig: AIConfig = {
+    anthropicApiKey: undefined,
+    openaiApiKey: undefined,
+  };
+
+  it('should create an AnthropicProvider when anthropic is selected', () => {
+    const selection: AISelection = {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5-20250929',
+    };
+
+    const provider = createProvider(fullConfig, selection);
+
+    expect(provider).toBeInstanceOf(AnthropicProvider);
+    expect(provider?.name).toBe('anthropic');
+  });
+
+  it('should create an OpenAIProvider when openai is selected', () => {
+    const selection: AISelection = {
+      provider: 'openai',
+      model: 'gpt-5.2',
+    };
+
+    const provider = createProvider(fullConfig, selection);
+
+    expect(provider).toBeInstanceOf(OpenAIProvider);
+    expect(provider?.name).toBe('openai');
+  });
+
+  it('should return undefined when anthropic key is missing', () => {
+    const selection: AISelection = {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5-20250929',
+    };
+
+    const provider = createProvider(emptyConfig, selection);
+
+    expect(provider).toBeUndefined();
+  });
+
+  it('should return undefined when openai key is missing', () => {
+    const selection: AISelection = {
+      provider: 'openai',
+      model: 'gpt-5.2',
+    };
+
+    const provider = createProvider(emptyConfig, selection);
+
+    expect(provider).toBeUndefined();
+  });
+});
+
+describe('hasApiKey', () => {
+  it('should return true when anthropic key exists', () => {
+    const config: AIConfig = {
+      anthropicApiKey: 'sk-ant-test',
+      openaiApiKey: undefined,
+    };
+
+    expect(hasApiKey(config, 'anthropic')).toBe(true);
+    expect(hasApiKey(config, 'openai')).toBe(false);
+  });
+
+  it('should return true when openai key exists', () => {
+    const config: AIConfig = {
+      anthropicApiKey: undefined,
+      openaiApiKey: 'sk-test',
+    };
+
+    expect(hasApiKey(config, 'anthropic')).toBe(false);
+    expect(hasApiKey(config, 'openai')).toBe(true);
+  });
+
+  it('should return false for both when no keys exist', () => {
+    const config: AIConfig = {
+      anthropicApiKey: undefined,
+      openaiApiKey: undefined,
+    };
+
+    expect(hasApiKey(config, 'anthropic')).toBe(false);
+    expect(hasApiKey(config, 'openai')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SecretStorage operations
+// ---------------------------------------------------------------------------
+
+describe('getAIConfig', () => {
+  it('should return keys from secret storage', async () => {
+    const secrets = createMockSecretStorage();
+    secrets._store.set('posthog.ai.anthropicApiKey', 'sk-ant-123');
+    secrets._store.set('posthog.ai.openaiApiKey', 'sk-456');
+
+    const config = await getAIConfig(secrets as never);
+
+    expect(config.anthropicApiKey).toBe('sk-ant-123');
+    expect(config.openaiApiKey).toBe('sk-456');
+  });
+
+  it('should return undefined for missing keys', async () => {
+    const secrets = createMockSecretStorage();
+
+    const config = await getAIConfig(secrets as never);
+
+    expect(config.anthropicApiKey).toBeUndefined();
+    expect(config.openaiApiKey).toBeUndefined();
+  });
+
+  it('should treat empty strings as undefined', async () => {
+    const secrets = createMockSecretStorage();
+    secrets._store.set('posthog.ai.anthropicApiKey', '');
+
+    const config = await getAIConfig(secrets as never);
+
+    expect(config.anthropicApiKey).toBeUndefined();
+  });
+});
+
+describe('storeApiKey', () => {
+  it('should store anthropic key in secret storage', async () => {
+    const secrets = createMockSecretStorage();
+
+    await storeApiKey(secrets as never, 'anthropic', 'sk-ant-new');
+
+    expect(secrets.store).toHaveBeenCalledWith(
+      'posthog.ai.anthropicApiKey',
+      'sk-ant-new',
+    );
+  });
+
+  it('should store openai key in secret storage', async () => {
+    const secrets = createMockSecretStorage();
+
+    await storeApiKey(secrets as never, 'openai', 'sk-new');
+
+    expect(secrets.store).toHaveBeenCalledWith(
+      'posthog.ai.openaiApiKey',
+      'sk-new',
+    );
+  });
+});
+
+describe('removeApiKey', () => {
+  it('should delete the correct key from secret storage', async () => {
+    const secrets = createMockSecretStorage();
+    secrets._store.set('posthog.ai.anthropicApiKey', 'sk-ant-old');
+
+    await removeApiKey(secrets as never, 'anthropic');
+
+    expect(secrets.delete).toHaveBeenCalledWith('posthog.ai.anthropicApiKey');
+  });
+});

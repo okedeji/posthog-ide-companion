@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { PostHogAuthProvider } from './auth/provider';
-import { PostHogSidebarProvider } from './auth/sidebar-provider';
+import { PostHogSidebarProvider } from './ui/sidebar/sidebar-provider';
 import {
   fetchProjects,
   showProjectPicker,
@@ -9,6 +9,13 @@ import {
   clearActiveProject,
 } from './auth/project-manager';
 import { AUTH_PROVIDER_ID } from './auth/constants';
+import {
+  showAISetupFlow,
+  showAIReconfigureMenu,
+  getActiveAISelection,
+  getModelLabel,
+} from './ai/selection-manager';
+import { getAIConfig, hasApiKey } from './ai/config';
 import { createLogger } from './utils/logger';
 import type { Logger } from './utils/logger';
 
@@ -89,6 +96,12 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('posthog.configureAI', () => {
+      void handleConfigureAI(context, sidebarProvider, logger);
+    }),
+  );
+
   // Initial state check
   void initializeState(
     context,
@@ -100,7 +113,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // Cleanup handled by disposables in context.subscriptions
+  // no-op: lifecycle managed by context.subscriptions
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +169,7 @@ async function handleSignOut(
     await clearActiveProject(context);
 
     sidebarProvider.setProject(undefined);
+    sidebarProvider.setAISelection(undefined);
     updateStatusBar(statusBar, 'signedOut');
     await setContextKeys(false, false);
 
@@ -209,9 +223,41 @@ async function handleSelectProject(
     await setContextKeys(true, true);
 
     logger.info(`Selected project: ${selected.name} (${String(selected.id)})`);
+
+    // Auto-trigger AI setup if not yet configured
+    const aiSelection = getActiveAISelection(context);
+    if (!aiSelection) {
+      await handleConfigureAI(context, sidebarProvider, logger);
+    }
   } catch (err) {
     logger.error('Project selection failed', err);
     void vscode.window.showErrorMessage('PostHog: Failed to load projects.');
+  }
+}
+
+async function handleConfigureAI(
+  context: vscode.ExtensionContext,
+  sidebarProvider: PostHogSidebarProvider,
+  logger: Logger,
+): Promise<void> {
+  try {
+    const existing = getActiveAISelection(context);
+    const selection = existing
+      ? await showAIReconfigureMenu(context)
+      : await showAISetupFlow(context);
+
+    if (selection) {
+      const label = getModelLabel(selection);
+      sidebarProvider.setAISelection(selection, label);
+      logger.info(`AI configured: ${selection.provider} (${label})`);
+    } else {
+      sidebarProvider.setAISelection(undefined);
+    }
+  } catch (err) {
+    logger.error('AI configuration failed', err);
+    void vscode.window.showErrorMessage(
+      'PostHog: Failed to configure AI provider.',
+    );
   }
 }
 
@@ -245,6 +291,19 @@ async function initializeState(
     updateStatusBar(statusBar, 'project', project.name);
     await setContextKeys(true, true);
     logger.info(`Restored project: ${project.name}`);
+
+    // Restore AI selection
+    const aiSelection = getActiveAISelection(context);
+    if (aiSelection) {
+      const aiConfig = await getAIConfig(context.secrets);
+      const label = getModelLabel(aiSelection);
+      sidebarProvider.setAISelection(aiSelection, label);
+      if (hasApiKey(aiConfig, aiSelection.provider)) {
+        logger.info(`Restored AI: ${aiSelection.provider} (${label})`);
+      } else {
+        logger.info(`AI configured as ${label} but API key is missing`);
+      }
+    }
   } else {
     updateStatusBar(statusBar, 'noProject');
   }

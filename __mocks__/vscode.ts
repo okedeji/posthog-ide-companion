@@ -9,20 +9,35 @@ export const window = {
     show: () => undefined,
     dispose: () => undefined,
   }),
-  showInformationMessage: async () => undefined,
+  showInformationMessage: jest.fn(async () => undefined),
   showErrorMessage: async () => undefined,
   showWarningMessage: async () => undefined,
   showQuickPick: jest.fn(async () => undefined),
+  showInputBox: jest.fn(async () => undefined),
   registerWebviewViewProvider: jest.fn(() => ({
     dispose: () => undefined,
+  })),
+  createStatusBarItem: jest.fn(() => ({
+    show: jest.fn(),
+    dispose: jest.fn(),
+    text: '',
+    command: '',
+    tooltip: '',
   })),
 };
 
 export const workspace = {
-  getConfiguration: () => ({
-    get: () => undefined,
-  }),
+  getConfiguration: jest.fn(() => ({
+    get: jest.fn(() => undefined),
+    update: jest.fn(async () => undefined),
+  })),
 };
+
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3,
+}
 
 export const commands = {
   registerCommand: () => ({ dispose: () => undefined }),
