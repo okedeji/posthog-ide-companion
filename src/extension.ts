@@ -45,12 +45,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Sidebar
   const sidebarProvider = new PostHogSidebarProvider();
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      PostHogSidebarProvider.viewType,
-      sidebarProvider,
-    ),
+  const sidebarTree = vscode.window.createTreeView(
+    PostHogSidebarProvider.viewType,
+    { treeDataProvider: sidebarProvider },
   );
+  context.subscriptions.push(sidebarTree);
 
   // Status bar
   const statusBar = vscode.window.createStatusBarItem(
@@ -100,6 +99,15 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('posthog.configureAI', () => {
       void handleConfigureAI(context, sidebarProvider, logger);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('posthog.openDashboard', () => {
+      const url = sidebarProvider.getDashboardUrl();
+      if (url) {
+        void vscode.env.openExternal(vscode.Uri.parse(url));
+      }
     }),
   );
 

@@ -7,31 +7,31 @@ import type {
 } from '../../ai/types';
 import type { CloudRegion } from '../../auth/constants';
 import { CLOUD_URLS } from '../../auth/constants';
-import { buildProjectHtml, buildEmptyHtml } from './sidebar-html';
 
-type WebviewMessage =
-  | { command: 'switchProject' }
-  | { command: 'signOut' }
-  | { command: 'openDashboard' }
-  | { command: 'configureAI' };
+type SidebarItem = {
+  label: string;
+  description?: string;
+  icon: string;
+};
 
-/** Sidebar webview — routes button messages to extension commands. */
-export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
+/** Native tree view showing project info, AI config, and workspace status. */
+export class PostHogSidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
   static readonly viewType = 'posthog.sidebar';
 
-  private _view: vscode.WebviewView | undefined;
   private _project: PostHogProject | undefined;
   private _region: CloudRegion | undefined;
   private _aiSelection: AISelection | undefined;
   private _aiModelLabel: string | undefined;
   private _workspaceInfo: WorkspaceInfo | undefined;
   private _detectionStatus: DetectionStatus | undefined;
-  private _disposables: vscode.Disposable[] = [];
+
+  private _onDidChangeTreeData = new vscode.EventEmitter<void>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   setProject(project: PostHogProject | undefined, region?: CloudRegion): void {
     this._project = project;
     this._region = region;
-    this._render();
+    this._onDidChangeTreeData.fire();
   }
 
   setAISelection(
@@ -40,7 +40,7 @@ export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
   ): void {
     this._aiSelection = selection;
     this._aiModelLabel = modelLabel;
-    this._render();
+    this._onDidChangeTreeData.fire();
   }
 
   setWorkspaceDetection(
@@ -49,79 +49,138 @@ export class PostHogSidebarProvider implements vscode.WebviewViewProvider {
   ): void {
     this._detectionStatus = status;
     this._workspaceInfo = info;
-    this._render();
+    this._onDidChangeTreeData.fire();
   }
 
-  resolveWebviewView(webviewView: vscode.WebviewView): void {
-    this._view = webviewView;
+  getDashboardUrl(): string | undefined {
+    if (!this._project || !this._region) {
+      return undefined;
+    }
+    const baseUrl = CLOUD_URLS[this._region];
+    if (!baseUrl) {
+      return undefined;
+    }
+    return `${baseUrl}/project/${this._project.id}`;
+  }
 
-    webviewView.webview.options = {
-      enableScripts: true,
-    };
+  getTreeItem(item: SidebarItem): vscode.TreeItem {
+    const treeItem = new vscode.TreeItem(item.label);
+    treeItem.description = item.description;
+    treeItem.iconPath = new vscode.ThemeIcon(item.icon);
+    treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
+    return treeItem;
+  }
 
-    const subscription = webviewView.webview.onDidReceiveMessage(
-      (message: WebviewMessage) => {
-        switch (message.command) {
-          case 'switchProject':
-            void vscode.commands.executeCommand('posthog.selectProject');
-            break;
-          case 'signOut':
-            void vscode.commands.executeCommand('posthog.signOut');
-            break;
-          case 'openDashboard':
-            this._openDashboard();
-            break;
-          case 'configureAI':
-            void vscode.commands.executeCommand('posthog.configureAI');
-            break;
-        }
+  getChildren(): SidebarItem[] {
+    if (!this._project) {
+      return [];
+    }
+
+    const items: SidebarItem[] = [
+      {
+        label: this._project.name,
+        description: this._project.organization,
+        icon: 'project',
       },
-    );
+      {
+        label: 'Project ID',
+        description: String(this._project.id),
+        icon: 'key',
+      },
+      {
+        label: 'Region',
+        description: this._region?.toUpperCase() ?? 'Unknown',
+        icon: 'globe',
+      },
+      {
+        label: 'AI Model',
+        description: this._aiSelection
+          ? (this._aiModelLabel ?? this._aiSelection.model)
+          : 'Not configured',
+        icon: 'sparkle',
+      },
+      {
+        label: 'Workspace',
+        description: this._formatWorkspaceSummary(),
+        icon: 'code',
+      },
+      ...this._buildWorkspaceDetails(),
+    ];
 
-    webviewView.onDidDispose(() => {
-      subscription.dispose();
-      this._view = undefined;
-    });
-
-    this._disposables.push(subscription);
-    this._render();
+    return items;
   }
 
   dispose(): void {
-    for (const d of this._disposables) {
-      d.dispose();
-    }
-    this._disposables = [];
+    this._onDidChangeTreeData.dispose();
   }
 
-  private _render(): void {
-    if (!this._view) {
-      return;
+  private _formatWorkspaceSummary(): string {
+    switch (this._detectionStatus) {
+      case 'running':
+        return 'Analyzing\u2026';
+      case 'failed':
+        return 'Detection failed';
+      case 'complete': {
+        if (!this._workspaceInfo) {
+          return 'Detected';
+        }
+        const { language, frameworks } = this._workspaceInfo;
+        if (frameworks.length === 0) {
+          return language;
+        }
+        return `${language}, ${frameworks.join(', ')}`;
+      }
+      default:
+        return 'Not detected';
     }
-
-    this._view.webview.html = this._project
-      ? buildProjectHtml(
-          this._project,
-          this._region,
-          this._aiSelection,
-          this._aiModelLabel,
-          this._workspaceInfo,
-          this._detectionStatus,
-        )
-      : buildEmptyHtml();
   }
 
-  private _openDashboard(): void {
-    if (!this._project || !this._region) {
-      return;
+  private _buildWorkspaceDetails(): SidebarItem[] {
+    if (this._detectionStatus !== 'complete' || !this._workspaceInfo) {
+      return [];
     }
 
-    const baseUrl = CLOUD_URLS[this._region];
-    if (!baseUrl) {
-      return;
+    const info = this._workspaceInfo;
+    const details: SidebarItem[] = [
+      {
+        label: 'Language',
+        description: info.language,
+        icon: 'symbol-keyword',
+      },
+    ];
+
+    if (info.frameworks.length > 0) {
+      details.push({
+        label: 'Frameworks',
+        description: info.frameworks.join(', '),
+        icon: 'library',
+      });
     }
 
-    const url = `${baseUrl}/project/${this._project.id}`;
-    void vscode.env.openExternal(vscode.Uri.parse(url));
+    if (info.packageManager) {
+      details.push({
+        label: 'Package Mgr',
+        description: info.packageManager,
+        icon: 'package',
+      });
+    }
+
+    if (info.buildTools.length > 0) {
+      details.push({
+        label: 'Build',
+        description: info.buildTools.join(', '),
+        icon: 'tools',
+      });
+    }
+
+    if (info.projectStructure) {
+      details.push({
+        label: 'Structure',
+        description: info.projectStructure,
+        icon: 'layers',
+      });
+    }
+
+    return details;
   }
 }

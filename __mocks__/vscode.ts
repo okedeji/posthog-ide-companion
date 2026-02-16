@@ -14,7 +14,7 @@ export const window = {
   showWarningMessage: async () => undefined,
   showQuickPick: jest.fn(async () => undefined),
   showInputBox: jest.fn(async () => undefined),
-  registerWebviewViewProvider: jest.fn(() => ({
+  createTreeView: jest.fn(() => ({
     dispose: () => undefined,
   })),
   createStatusBarItem: jest.fn(() => ({
@@ -77,6 +77,13 @@ export class EventEmitter {
 
   dispose(): void {
     this.listeners = [];
+  }
+}
+
+export class ThemeIcon {
+  readonly id: string;
+  constructor(id: string) {
+    this.id = id;
   }
 }
 

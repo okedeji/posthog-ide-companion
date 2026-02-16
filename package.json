@@ -34,17 +34,23 @@
     "views": {
       "posthog": [
         {
-          "type": "webview",
-          "id": "posthog.sidebar",
-          "name": "PostHog",
-          "icon": "resources/posthog-icon.svg",
-          "when": "posthog.authenticated && posthog.projectSelected"
-        },
-        {
           "id": "posthog.welcome",
           "name": "PostHog",
           "icon": "resources/posthog-icon.svg",
           "when": "!posthog.authenticated || !posthog.projectSelected"
+        },
+        {
+          "id": "posthog.discoveries",
+          "name": "Discoveries",
+          "icon": "resources/posthog-icon.svg",
+          "when": "posthog.authenticated && posthog.projectSelected"
+        },
+        {
+          "id": "posthog.sidebar",
+          "name": "Project",
+          "icon": "resources/posthog-icon.svg",
+          "when": "posthog.authenticated && posthog.projectSelected",
+          "visibility": "visible"
         }
       ]
     },
@@ -58,6 +64,11 @@
         "view": "posthog.welcome",
         "contents": "Select a project to get started.\n[Select Project](command:posthog.selectProject)",
         "when": "posthog.authenticated && !posthog.projectSelected"
+      },
+      {
+        "view": "posthog.discoveries",
+        "contents": "Errors and feature flag alerts will appear here.\n[Detect Workspace](command:posthog.detectWorkspace)",
+        "when": "posthog.authenticated && posthog.projectSelected"
       }
     ],
     "commands": [
@@ -67,21 +78,59 @@
       },
       {
         "command": "posthog.signOut",
-        "title": "PostHog: Sign Out"
+        "title": "PostHog: Sign Out",
+        "icon": "$(sign-out)"
       },
       {
         "command": "posthog.selectProject",
-        "title": "PostHog: Select Project"
+        "title": "PostHog: Change Project",
+        "icon": "$(arrow-swap)"
       },
       {
         "command": "posthog.configureAI",
-        "title": "PostHog: Configure AI Provider"
+        "title": "PostHog: Configure AI Provider",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "posthog.openDashboard",
+        "title": "PostHog: Open in PostHog",
+        "icon": "$(link-external)"
       },
       {
         "command": "posthog.detectWorkspace",
-        "title": "PostHog: Detect Workspace"
+        "title": "PostHog: Refresh Workspace Detection",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "posthog.selectProject",
+          "when": "view == posthog.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "posthog.configureAI",
+          "when": "view == posthog.sidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "posthog.detectWorkspace",
+          "when": "view == posthog.sidebar",
+          "group": "navigation@3"
+        },
+        {
+          "command": "posthog.openDashboard",
+          "when": "view == posthog.sidebar",
+          "group": "navigation@4"
+        },
+        {
+          "command": "posthog.signOut",
+          "when": "view == posthog.sidebar",
+          "group": "navigation@5"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "pnpm check-types && node esbuild.mjs",
