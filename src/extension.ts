@@ -13,6 +13,7 @@ import {
   showAISetupFlow,
   showAIReconfigureMenu,
   getActiveAISelection,
+  setActiveAISelection,
   getModelLabel,
 } from './ai/selection-manager';
 import { getAIConfig, hasApiKey, createProvider } from './ai/config';
@@ -306,9 +307,10 @@ async function initializeState(
     await setContextKeys(true, true);
     logger.info(`Restored project: ${project.name}`);
 
-    // Restore AI selection
+    // Restore AI selection (backfill global default for pre-existing selections)
     const aiSelection = getActiveAISelection(context);
     if (aiSelection) {
+      await setActiveAISelection(context, aiSelection);
       const aiConfig = await getAIConfig(context.secrets);
       const label = getModelLabel(aiSelection);
       sidebarProvider.setAISelection(aiSelection, label);

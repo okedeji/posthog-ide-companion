@@ -3,6 +3,7 @@ import type { AISelection, AIProviderName, ModelOption } from './types';
 import { getAIConfig, hasApiKey, storeApiKey, removeApiKey } from './config';
 
 const WORKSPACE_STATE_KEY = 'posthog.aiSelection';
+const DEFAULT_AI_KEY = 'posthog.defaultAISelection';
 
 // Adding a new provider? Add a models array and update getModelsForProvider().
 
@@ -74,17 +75,25 @@ export function getModelsForProvider(provider: AIProviderName): ModelOption[] {
   }
 }
 
+/** Falls back to the global default if no workspace-specific selection. */
 export function getActiveAISelection(
   context: vscode.ExtensionContext,
 ): AISelection | undefined {
-  return context.workspaceState.get<AISelection>(WORKSPACE_STATE_KEY);
+  const workspace =
+    context.workspaceState.get<AISelection>(WORKSPACE_STATE_KEY);
+  if (workspace) {
+    return workspace;
+  }
+  return context.globalState.get<AISelection>(DEFAULT_AI_KEY);
 }
 
+/** Also updates the global default so new workspaces inherit the choice. */
 export async function setActiveAISelection(
   context: vscode.ExtensionContext,
   selection: AISelection,
 ): Promise<void> {
   await context.workspaceState.update(WORKSPACE_STATE_KEY, selection);
+  await context.globalState.update(DEFAULT_AI_KEY, selection);
 }
 
 export async function clearActiveAISelection(
