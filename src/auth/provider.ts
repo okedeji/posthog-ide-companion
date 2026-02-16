@@ -57,7 +57,7 @@ export class PostHogAuthProvider
   async getSessions(
     _scopes?: readonly string[],
   ): Promise<vscode.AuthenticationSession[]> {
-    const token = await this.secretStorage.get(SECRET_KEYS.accessToken);
+    let token = await this.secretStorage.get(SECRET_KEYS.accessToken);
 
     if (!token) {
       return [];
@@ -66,6 +66,11 @@ export class PostHogAuthProvider
     if (await this.isTokenExpired()) {
       const refreshed = await this.tryRefresh();
       if (!refreshed) {
+        return [];
+      }
+      // Re-read after refresh — tryRefresh stores the new token
+      token = await this.secretStorage.get(SECRET_KEYS.accessToken);
+      if (!token) {
         return [];
       }
     }

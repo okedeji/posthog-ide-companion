@@ -67,7 +67,7 @@
       },
       {
         "view": "posthog.discoveries",
-        "contents": "Errors and feature flag alerts will appear here.\n[Detect Workspace](command:posthog.detectWorkspace)",
+        "contents": "No errors detected yet. Polling for new issues...\n[Refresh Now](command:posthog.refreshDiscoveries)",
         "when": "posthog.authenticated && posthog.projectSelected"
       }
     ],
@@ -100,6 +100,11 @@
         "command": "posthog.detectWorkspace",
         "title": "PostHog: Refresh Workspace Detection",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "posthog.refreshDiscoveries",
+        "title": "PostHog: Refresh Discoveries",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -128,6 +133,11 @@
           "command": "posthog.signOut",
           "when": "view == posthog.sidebar",
           "group": "navigation@5"
+        },
+        {
+          "command": "posthog.refreshDiscoveries",
+          "when": "view == posthog.discoveries",
+          "group": "navigation@1"
         }
       ]
     }

@@ -9,6 +9,7 @@ import {
   clearActiveProject,
 } from './auth/project-manager';
 import { AUTH_PROVIDER_ID } from './auth/constants';
+import type { CloudRegion } from './auth/constants';
 import {
   showAISetupFlow,
   showAIReconfigureMenu,
@@ -25,6 +26,14 @@ import {
 } from './ai/workspace-detection';
 import { createLogger } from './utils/logger';
 import type { Logger } from './utils/logger';
+import { PostHogApiClient } from './api/posthog-client';
+import { DiscoveryStore } from './discoveries/store';
+import { DiscoveriesProvider } from './ui/discoveries/discoveries-provider';
+import { createErrorPoller } from './discoveries/pollers/error-poller';
+import type { Poller } from './discoveries/poller';
+
+// Module-level poller reference so sign-out can stop it
+let activeErrorPoller: Poller<void> | undefined;
 
 /** Extension entry point — wires up auth, sidebar, status bar, and commands. */
 export function activate(context: vscode.ExtensionContext): void {
@@ -52,6 +61,16 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(sidebarTree);
 
+  // Discoveries
+  const discoveryStore = new DiscoveryStore();
+  const discoveriesProvider = new DiscoveriesProvider(discoveryStore);
+  const discoveriesTree = vscode.window.createTreeView(
+    DiscoveriesProvider.viewType,
+    { treeDataProvider: discoveriesProvider },
+  );
+  context.subscriptions.push(discoveriesTree);
+  context.subscriptions.push(discoveryStore);
+
   // Status bar
   const statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
@@ -67,6 +86,7 @@ export function activate(context: vscode.ExtensionContext): void {
         context,
         authProvider,
         sidebarProvider,
+        discoveryStore,
         statusBar,
         logger,
       );
@@ -79,6 +99,7 @@ export function activate(context: vscode.ExtensionContext): void {
         context,
         authProvider,
         sidebarProvider,
+        discoveryStore,
         statusBar,
         logger,
       );
@@ -91,6 +112,7 @@ export function activate(context: vscode.ExtensionContext): void {
         context,
         authProvider,
         sidebarProvider,
+        discoveryStore,
         statusBar,
         logger,
       );
@@ -118,11 +140,20 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('posthog.refreshDiscoveries', () => {
+      if (activeErrorPoller) {
+        void activeErrorPoller.pollNow();
+      }
+    }),
+  );
+
   // Initial state check
   void initializeState(
     context,
     authProvider,
     sidebarProvider,
+    discoveryStore,
     statusBar,
     logger,
   );
@@ -138,6 +169,7 @@ async function handleSignIn(
   context: vscode.ExtensionContext,
   authProvider: PostHogAuthProvider,
   sidebarProvider: PostHogSidebarProvider,
+  discoveryStore: DiscoveryStore,
   statusBar: vscode.StatusBarItem,
   logger: Logger,
 ): Promise<void> {
@@ -160,6 +192,7 @@ async function handleSignIn(
       context,
       authProvider,
       sidebarProvider,
+      discoveryStore,
       statusBar,
       logger,
     );
@@ -175,12 +208,16 @@ async function handleSignOut(
   context: vscode.ExtensionContext,
   authProvider: PostHogAuthProvider,
   sidebarProvider: PostHogSidebarProvider,
+  discoveryStore: DiscoveryStore,
   statusBar: vscode.StatusBarItem,
   logger: Logger,
 ): Promise<void> {
   try {
     await authProvider.removeSession(PostHogAuthProvider.id);
     await clearActiveProject(context);
+
+    stopDiscoveryPolling();
+    discoveryStore.clear();
 
     sidebarProvider.setProject(undefined);
     sidebarProvider.setAISelection(undefined);
@@ -197,6 +234,7 @@ async function handleSelectProject(
   context: vscode.ExtensionContext,
   authProvider: PostHogAuthProvider,
   sidebarProvider: PostHogSidebarProvider,
+  discoveryStore: DiscoveryStore,
   statusBar: vscode.StatusBarItem,
   logger: Logger,
 ): Promise<void> {
@@ -236,11 +274,30 @@ async function handleSelectProject(
     updateStatusBar(statusBar, 'project', selected.name);
     await setContextKeys(true, true);
 
+    // Restart discovery polling for the new project
+    startDiscoveryPolling(
+      authProvider,
+      credentials.region,
+      selected.id,
+      discoveryStore,
+      logger,
+    );
+
     logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
-    // Kick off AI setup if not configured yet (which in turn triggers workspace detection)
+    // Restore or kick off AI setup
     const aiSelection = getActiveAISelection(context);
-    if (!aiSelection) {
+    if (aiSelection) {
+      const aiConfig = await getAIConfig(context.secrets);
+      const label = getModelLabel(aiSelection);
+      sidebarProvider.setAISelection(aiSelection, label);
+      if (hasApiKey(aiConfig, aiSelection.provider)) {
+        const workspaceInfo = getStoredWorkspaceInfo(context);
+        if (workspaceInfo) {
+          sidebarProvider.setWorkspaceDetection('complete', workspaceInfo);
+        }
+      }
+    } else {
       await handleConfigureAI(context, sidebarProvider, logger);
     }
   } catch (err) {
@@ -284,6 +341,7 @@ async function initializeState(
   context: vscode.ExtensionContext,
   authProvider: PostHogAuthProvider,
   sidebarProvider: PostHogSidebarProvider,
+  discoveryStore: DiscoveryStore,
   statusBar: vscode.StatusBarItem,
   logger: Logger,
 ): Promise<void> {
@@ -306,6 +364,15 @@ async function initializeState(
     updateStatusBar(statusBar, 'project', project.name);
     await setContextKeys(true, true);
     logger.info(`Restored project: ${project.name}`);
+
+    // Start discovery polling
+    startDiscoveryPolling(
+      authProvider,
+      credentials.region,
+      project.id,
+      discoveryStore,
+      logger,
+    );
 
     // Restore AI selection (backfill global default for pre-existing selections)
     const aiSelection = getActiveAISelection(context);
@@ -510,6 +577,36 @@ async function setContextKeys(
     'posthog.projectSelected',
     projectSelected,
   );
+}
+
+function startDiscoveryPolling(
+  authProvider: PostHogAuthProvider,
+  region: CloudRegion,
+  projectId: number,
+  store: DiscoveryStore,
+  logger: Logger,
+): void {
+  stopDiscoveryPolling();
+  store.clear();
+
+  const resolveToken = async () => {
+    const credentials = await authProvider.getValidToken();
+    if (!credentials) {
+      logger.debug('Token resolver: no valid credentials');
+    }
+    return credentials?.token;
+  };
+  const client = new PostHogApiClient(resolveToken, region, projectId);
+  activeErrorPoller = createErrorPoller(client, store, logger);
+  activeErrorPoller.start();
+  logger.info('Discovery polling started');
+}
+
+function stopDiscoveryPolling(): void {
+  if (activeErrorPoller) {
+    activeErrorPoller.dispose();
+    activeErrorPoller = undefined;
+  }
 }
 
 function showSignInNotification(): void {

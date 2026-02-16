@@ -11,7 +11,7 @@ export const CLOUD_URLS: Record<CloudRegion, string> = {
 export const OAUTH_CALLBACK_PATH = '/callback';
 
 /** OAuth scopes requested during authorization. */
-export const OAUTH_SCOPES = ['user:read', 'project:read'];
+export const OAUTH_SCOPES = ['user:read', 'project:read', 'query:read'];
 
 /** Maximum time to wait for OAuth callback (ms). */
 export const OAUTH_TIMEOUT_MS = 120_000;
