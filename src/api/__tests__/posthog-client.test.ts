@@ -14,6 +14,7 @@ function mockFetchResponse(status: number, body: unknown): void {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
+    headers: new Headers(),
   } as Response);
 }
 
@@ -145,16 +146,31 @@ describe('PostHogApiClient', () => {
       }
     });
 
-    it('should return rate_limited for 429', async () => {
+    it('should return rate_limited for 429 after exhausting retries', async () => {
+      jest.useFakeTimers();
       const client = createClient();
-      mockFetchResponse(429, {});
 
-      const result = await client.get('/test/', TestSchema);
+      // Mock 3 responses: initial fetch + 2 retries, all 429
+      const fetchSpy = jest.spyOn(globalThis, 'fetch');
+      for (let i = 0; i < 3; i++) {
+        fetchSpy.mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: async () => ({}),
+          headers: new Headers(),
+        } as Response);
+      }
+
+      const resultPromise = client.get('/test/', TestSchema);
+      await jest.advanceTimersByTimeAsync(15_000);
+      const result = await resultPromise;
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.code).toBe('rate_limited');
       }
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      jest.useRealTimers();
     });
 
     it('should return unknown for 500', async () => {

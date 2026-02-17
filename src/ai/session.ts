@@ -67,12 +67,10 @@ export class Session {
     this._lastActiveAt = this._createdAt;
   }
 
-  /** The session's conversation history (user and assistant text messages). */
   get messages(): readonly SessionMessage[] {
     return this._messages;
   }
 
-  /** Whether the agent loop is currently running. */
   get isRunning(): boolean {
     return this._isRunning;
   }
@@ -150,7 +148,6 @@ export class Session {
     }
   }
 
-  /** Returns a read-only snapshot of the session state. */
   snapshot(): SessionSnapshot {
     return {
       id: this.id,
@@ -160,7 +157,6 @@ export class Session {
     };
   }
 
-  /** Clears the conversation history, resetting the session. */
   reset(): void {
     if (this._isRunning) {
       throw new Error('Cannot reset session while processing');

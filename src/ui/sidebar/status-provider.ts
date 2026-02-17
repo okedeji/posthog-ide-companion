@@ -8,14 +8,14 @@ import type {
 import type { CloudRegion } from '../../auth/constants';
 import { CLOUD_URLS } from '../../auth/constants';
 
-type SidebarItem = {
+type StatusItem = {
   label: string;
   description?: string;
   icon: string;
 };
 
 /** Native tree view showing project info, AI config, and workspace status. */
-export class PostHogSidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
+export class StatusProvider implements vscode.TreeDataProvider<StatusItem> {
   static readonly viewType = 'posthog.sidebar';
 
   private _project: PostHogProject | undefined;
@@ -63,7 +63,7 @@ export class PostHogSidebarProvider implements vscode.TreeDataProvider<SidebarIt
     return `${baseUrl}/project/${this._project.id}`;
   }
 
-  getTreeItem(item: SidebarItem): vscode.TreeItem {
+  getTreeItem(item: StatusItem): vscode.TreeItem {
     const treeItem = new vscode.TreeItem(item.label);
     treeItem.description = item.description;
     treeItem.iconPath = new vscode.ThemeIcon(item.icon);
@@ -71,12 +71,12 @@ export class PostHogSidebarProvider implements vscode.TreeDataProvider<SidebarIt
     return treeItem;
   }
 
-  getChildren(): SidebarItem[] {
+  getChildren(): StatusItem[] {
     if (!this._project) {
       return [];
     }
 
-    const items: SidebarItem[] = [
+    const items: StatusItem[] = [
       {
         label: this._project.name,
         description: this._project.organization,
@@ -135,13 +135,13 @@ export class PostHogSidebarProvider implements vscode.TreeDataProvider<SidebarIt
     }
   }
 
-  private _buildWorkspaceDetails(): SidebarItem[] {
+  private _buildWorkspaceDetails(): StatusItem[] {
     if (this._detectionStatus !== 'complete' || !this._workspaceInfo) {
       return [];
     }
 
     const info = this._workspaceInfo;
-    const details: SidebarItem[] = [
+    const details: StatusItem[] = [
       {
         label: 'Language',
         description: info.language,

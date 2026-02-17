@@ -44,10 +44,6 @@ export async function compactIfNeeded(
 
   const summary = await summarizeMessages(provider, oldMessages);
 
-  // Build the compacted conversation:
-  //   1. A user message with the summary (provides context)
-  //   2. An assistant acknowledgment (maintains role alternation)
-  //   3. The preserved recent messages
   return [
     { role: 'user', content: summary },
     {
@@ -125,7 +121,6 @@ function buildFallbackSummary(messages: LLMMessage[]): string {
       if (typeof m.content === 'string') {
         return m.content;
       }
-      // Extract text blocks from content block arrays
       return m.content
         .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
         .map((b) => b.text)

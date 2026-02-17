@@ -8,9 +8,7 @@ const CHARS_PER_TOKEN = 4;
 const MESSAGE_OVERHEAD = 4;
 
 export type TokenCounter = {
-  /** Estimate the token count for a string of text. */
   countText(text: string): number;
-  /** Estimate the total token count for a list of LLM messages. */
   countMessages(messages: readonly LLMMessage[]): number;
 };
 

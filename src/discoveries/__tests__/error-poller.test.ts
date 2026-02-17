@@ -205,7 +205,7 @@ describe('createErrorPoller', () => {
 
     expect(store.count).toBe(0);
     expect(logger.error).toHaveBeenCalledWith(
-      '[errors] API error: Invalid token',
+      '[errors] API error (unauthorized): Invalid token',
     );
 
     poller.dispose();

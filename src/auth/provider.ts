@@ -51,9 +51,7 @@ export class PostHogAuthProvider
     this._onDidChangeSessions.dispose();
   }
 
-  // AuthenticationProvider interface
-
-  /** Returns existing sessions. Attempts token refresh if expired. */
+  /** Refreshes the token if expired. */
   async getSessions(
     _scopes?: readonly string[],
   ): Promise<vscode.AuthenticationSession[]> {
@@ -88,7 +86,7 @@ export class PostHogAuthProvider
     ];
   }
 
-  /** Creates a new session via OAuth PKCE + DCR. Opens browser, stores tokens. */
+  /** OAuth PKCE + DCR flow. Opens the browser for authorization. */
   async createSession(
     _scopes: readonly string[],
   ): Promise<vscode.AuthenticationSession> {
@@ -167,7 +165,7 @@ export class PostHogAuthProvider
     }
   }
 
-  /** Returns a valid access token and region, refreshing if needed. */
+  /** May trigger a token refresh over the network. */
   async getValidToken(): Promise<
     { token: string; region: CloudRegion } | undefined
   > {

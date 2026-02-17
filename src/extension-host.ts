@@ -1,0 +1,523 @@
+import * as vscode from 'vscode';
+import { PostHogAuthProvider } from './auth/provider';
+import { StatusProvider } from './ui/sidebar/status-provider';
+import {
+  fetchProjects,
+  showProjectPicker,
+  getActiveProject,
+  setActiveProject,
+  clearActiveProject,
+} from './auth/project-manager';
+import { AUTH_PROVIDER_ID } from './auth/constants';
+import type { CloudRegion } from './auth/constants';
+import {
+  showAISetupFlow,
+  showAIReconfigureMenu,
+  getActiveAISelection,
+  setActiveAISelection,
+  getModelLabel,
+} from './ai/selection-manager';
+import { getAIConfig, hasApiKey, createProvider } from './ai/config';
+import type { WorkspaceInfo } from './ai/types';
+import {
+  detectWorkspace,
+  getStoredWorkspaceInfo,
+  setStoredWorkspaceInfo,
+  isWorkspaceInfoStale,
+} from './ai/workspace-detection';
+import type { Logger } from './utils/logger';
+import { PostHogApiClient } from './api/posthog-client';
+import { DiscoveryStore } from './discoveries/store';
+import { DiscoveriesProvider } from './ui/sidebar/discoveries-provider';
+import { createErrorPoller } from './discoveries/pollers/error-poller';
+import { workspaceInfoToSetupDiscoveries } from './discoveries/scanners/setup-issues';
+import type { Poller } from './discoveries/poller';
+
+/**
+ * Owns all extension state and command handlers.
+ * Created once in `activate()`, disposed via `context.subscriptions`.
+ */
+export class ExtensionHost implements vscode.Disposable {
+  private readonly authProvider: PostHogAuthProvider;
+  private readonly sidebarProvider: StatusProvider;
+  private readonly discoveryStore: DiscoveryStore;
+  private readonly statusBar: vscode.StatusBarItem;
+
+  private activeErrorPoller: Poller<void> | undefined;
+
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly logger: Logger,
+  ) {
+    this.authProvider = new PostHogAuthProvider(context.secrets);
+    context.subscriptions.push(
+      vscode.authentication.registerAuthenticationProvider(
+        PostHogAuthProvider.id,
+        'PostHog',
+        this.authProvider,
+        { supportsMultipleAccounts: false },
+      ),
+    );
+    context.subscriptions.push(this.authProvider);
+
+    this.sidebarProvider = new StatusProvider();
+    context.subscriptions.push(
+      vscode.window.createTreeView(StatusProvider.viewType, {
+        treeDataProvider: this.sidebarProvider,
+      }),
+    );
+
+    this.discoveryStore = new DiscoveryStore();
+    const discoveriesProvider = new DiscoveriesProvider(this.discoveryStore);
+    context.subscriptions.push(
+      vscode.window.createTreeView(DiscoveriesProvider.viewType, {
+        treeDataProvider: discoveriesProvider,
+      }),
+    );
+    context.subscriptions.push(this.discoveryStore);
+
+    this.statusBar = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100,
+    );
+    this.statusBar.show();
+    context.subscriptions.push(this.statusBar);
+  }
+
+  registerCommands(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand('posthog.signIn', () => {
+        void this.signIn();
+      }),
+      vscode.commands.registerCommand('posthog.signOut', () => {
+        void this.signOut();
+      }),
+      vscode.commands.registerCommand('posthog.selectProject', () => {
+        void this.selectProject();
+      }),
+      vscode.commands.registerCommand('posthog.configureAI', () => {
+        void this.configureAI();
+      }),
+      vscode.commands.registerCommand('posthog.openDashboard', () => {
+        const url = this.sidebarProvider.getDashboardUrl();
+        if (url) {
+          void vscode.env.openExternal(vscode.Uri.parse(url));
+        }
+      }),
+      vscode.commands.registerCommand('posthog.detectWorkspace', () => {
+        void this.triggerWorkspaceDetection();
+      }),
+      vscode.commands.registerCommand('posthog.refreshDiscoveries', () => {
+        if (this.activeErrorPoller) {
+          void this.activeErrorPoller.pollNow();
+        }
+      }),
+    );
+  }
+
+  async initialize(): Promise<void> {
+    const credentials = await this.authProvider.getValidToken();
+
+    if (!credentials) {
+      this.updateStatusBar('signedOut');
+      await setContextKeys(false, false);
+      showSignInNotification();
+      this.logger.info('No existing session found');
+      return;
+    }
+
+    this.logger.info('Restored existing session');
+    await setContextKeys(true, false);
+
+    const project = getActiveProject(this.context);
+    if (!project) {
+      this.updateStatusBar('noProject');
+      return;
+    }
+
+    this.sidebarProvider.setProject(project, credentials.region);
+    this.updateStatusBar('project', project.name);
+    await setContextKeys(true, true);
+    this.logger.info(`Restored project: ${project.name}`);
+
+    this.startDiscoveryPolling(credentials.region, project.id);
+    await this.restoreAISelection();
+  }
+
+  dispose(): void {
+    this.stopDiscoveryPolling();
+  }
+
+  private async signIn(): Promise<void> {
+    try {
+      const session = await vscode.authentication.getSession(
+        AUTH_PROVIDER_ID,
+        [],
+        { createIfNone: true },
+      );
+
+      if (!session) {
+        return;
+      }
+
+      this.logger.info(`Signed in as ${session.account.label}`);
+      await setContextKeys(true, false);
+      await this.selectProject();
+    } catch (err) {
+      this.logger.error('Sign in failed', err);
+      void vscode.window.showErrorMessage(
+        'PostHog: Sign in failed. Please try again.',
+      );
+    }
+  }
+
+  private async signOut(): Promise<void> {
+    try {
+      await this.authProvider.removeSession(PostHogAuthProvider.id);
+      await clearActiveProject(this.context);
+
+      this.stopDiscoveryPolling();
+      this.discoveryStore.clear();
+
+      this.sidebarProvider.setProject(undefined);
+      this.sidebarProvider.setAISelection(undefined);
+      this.updateStatusBar('signedOut');
+      await setContextKeys(false, false);
+
+      this.logger.info('Signed out');
+    } catch (err) {
+      this.logger.error('Sign out failed', err);
+    }
+  }
+
+  private async selectProject(): Promise<void> {
+    try {
+      const credentials = await this.authProvider.getValidToken();
+      if (!credentials) {
+        void vscode.window.showWarningMessage('PostHog: Please sign in first.');
+        return;
+      }
+
+      this.statusBar.text = '$(loading~spin) PostHog: Loading...';
+
+      const projects = await fetchProjects(
+        credentials.token,
+        credentials.region,
+      );
+
+      if (projects.length === 0) {
+        void vscode.window.showWarningMessage(
+          'PostHog: No projects found for your account.',
+        );
+        this.updateStatusBar('noProject');
+        return;
+      }
+
+      const selected = await showProjectPicker(projects);
+      if (!selected) {
+        const existing = getActiveProject(this.context);
+        this.updateStatusBar(
+          existing ? 'project' : 'noProject',
+          existing?.name,
+        );
+        return;
+      }
+
+      await setActiveProject(this.context, selected);
+      this.sidebarProvider.setProject(selected, credentials.region);
+      this.updateStatusBar('project', selected.name);
+      await setContextKeys(true, true);
+
+      this.startDiscoveryPolling(credentials.region, selected.id);
+      this.logger.info(`Selected project: ${selected.name} (${selected.id})`);
+
+      const aiSelection = getActiveAISelection(this.context);
+      if (aiSelection) {
+        const aiConfig = await getAIConfig(this.context.secrets);
+        const label = getModelLabel(aiSelection);
+        this.sidebarProvider.setAISelection(aiSelection, label);
+        if (hasApiKey(aiConfig, aiSelection.provider)) {
+          const workspaceInfo = getStoredWorkspaceInfo(this.context);
+          if (workspaceInfo) {
+            this.sidebarProvider.setWorkspaceDetection(
+              'complete',
+              workspaceInfo,
+            );
+          }
+        }
+      } else {
+        await this.configureAI();
+      }
+    } catch (err) {
+      this.logger.error('Project selection failed', err);
+      void vscode.window.showErrorMessage('PostHog: Failed to load projects.');
+    }
+  }
+
+  private async configureAI(): Promise<void> {
+    try {
+      const existing = getActiveAISelection(this.context);
+      const selection = existing
+        ? await showAIReconfigureMenu(this.context)
+        : await showAISetupFlow(this.context);
+
+      if (selection) {
+        const label = getModelLabel(selection);
+        this.sidebarProvider.setAISelection(selection, label);
+        this.logger.info(`AI configured: ${selection.provider} (${label})`);
+
+        if (!getStoredWorkspaceInfo(this.context)) {
+          void this.triggerWorkspaceDetection();
+        }
+      } else {
+        this.sidebarProvider.setAISelection(undefined);
+      }
+    } catch (err) {
+      this.logger.error('AI configuration failed', err);
+      void vscode.window.showErrorMessage(
+        'PostHog: Failed to configure AI provider.',
+      );
+    }
+  }
+
+  private async triggerWorkspaceDetection(): Promise<void> {
+    const aiSelection = getActiveAISelection(this.context);
+    if (!aiSelection) {
+      return;
+    }
+
+    const aiConfig = await getAIConfig(this.context.secrets);
+    const provider = createProvider(aiConfig, aiSelection);
+    if (!provider) {
+      return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return;
+    }
+
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+
+    const detectionStatus = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+      0,
+    );
+    detectionStatus.text = '$(loading~spin) PostHog: Analyzing workspace…';
+    detectionStatus.tooltip = 'Workspace detection in progress';
+    detectionStatus.show();
+    this.sidebarProvider.setWorkspaceDetection('running');
+
+    try {
+      const info = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'PostHog: Analyzing workspace',
+          cancellable: false,
+        },
+        async (progress) => {
+          return detectWorkspace(provider, workspaceRoot, {
+            onEvent: (event) => {
+              if (event.type === 'tool_call_start') {
+                const message = formatToolProgress(
+                  event.call.name,
+                  String(
+                    event.call.arguments['path'] ??
+                      event.call.arguments['pattern'] ??
+                      '',
+                  ),
+                );
+                progress.report({ message });
+                detectionStatus.text = `$(loading~spin) PostHog: ${message}`;
+              }
+            },
+            onLog: (level, message) => {
+              switch (level) {
+                case 'error':
+                  this.logger.error(`[detection] ${message}`);
+                  break;
+                case 'warn':
+                case 'info':
+                  this.logger.info(`[detection] ${message}`);
+                  break;
+                case 'debug':
+                  this.logger.debug(`[detection] ${message}`);
+                  break;
+              }
+            },
+          });
+        },
+      );
+
+      if (info) {
+        await setStoredWorkspaceInfo(this.context, info);
+        this.sidebarProvider.setWorkspaceDetection('complete', info);
+        this.mergeSetupIssues(info.setupIssues);
+        this.logger.info(
+          `Workspace detected: ${info.language} (${info.frameworks.join(', ') || 'no frameworks'})`,
+        );
+      } else {
+        this.sidebarProvider.setWorkspaceDetection('failed');
+        this.logger.info('Workspace detection returned no results');
+        void vscode.window.showWarningMessage(
+          'PostHog: Could not analyze workspace. You can retry via Command Palette → "PostHog: Detect Workspace".',
+        );
+      }
+    } catch (err) {
+      this.sidebarProvider.setWorkspaceDetection('failed');
+      this.logger.error('Workspace detection failed', err);
+      void vscode.window.showWarningMessage(
+        'PostHog: Workspace detection failed. You can retry via Command Palette → "PostHog: Detect Workspace".',
+      );
+    } finally {
+      detectionStatus.dispose();
+    }
+  }
+
+  private async promptStaleWorkspaceRedetection(): Promise<void> {
+    const action = await vscode.window.showInformationMessage(
+      'PostHog: Workspace info may be outdated. Re-analyze?',
+      'Re-analyze',
+      'Dismiss',
+    );
+
+    if (action === 'Re-analyze') {
+      void this.triggerWorkspaceDetection();
+    }
+  }
+
+  private startDiscoveryPolling(region: CloudRegion, projectId: number): void {
+    this.stopDiscoveryPolling();
+    this.discoveryStore.clear();
+
+    const resolveToken = async () => {
+      const credentials = await this.authProvider.getValidToken();
+      return credentials?.token;
+    };
+    const client = new PostHogApiClient(resolveToken, region, projectId);
+    this.activeErrorPoller = createErrorPoller(
+      client,
+      this.discoveryStore,
+      this.logger,
+    );
+    this.activeErrorPoller.start();
+    this.logger.info('Discovery polling started');
+  }
+
+  private stopDiscoveryPolling(): void {
+    if (this.activeErrorPoller) {
+      this.activeErrorPoller.dispose();
+      this.activeErrorPoller = undefined;
+    }
+  }
+
+  private async restoreAISelection(): Promise<void> {
+    const aiSelection = getActiveAISelection(this.context);
+    if (!aiSelection) {
+      return;
+    }
+
+    await setActiveAISelection(this.context, aiSelection);
+    const aiConfig = await getAIConfig(this.context.secrets);
+    const label = getModelLabel(aiSelection);
+    this.sidebarProvider.setAISelection(aiSelection, label);
+
+    if (!hasApiKey(aiConfig, aiSelection.provider)) {
+      this.logger.info(`AI configured as ${label} but API key is missing`);
+      return;
+    }
+
+    this.logger.info(`Restored AI: ${aiSelection.provider} (${label})`);
+
+    const workspaceInfo = getStoredWorkspaceInfo(this.context);
+    if (!workspaceInfo) {
+      void this.triggerWorkspaceDetection();
+      return;
+    }
+
+    this.sidebarProvider.setWorkspaceDetection('complete', workspaceInfo);
+    this.mergeSetupIssues(workspaceInfo.setupIssues);
+    if (isWorkspaceInfoStale(workspaceInfo)) {
+      void this.promptStaleWorkspaceRedetection();
+    }
+  }
+
+  private mergeSetupIssues(setupIssues: WorkspaceInfo['setupIssues']): void {
+    if (setupIssues.length === 0) {
+      return;
+    }
+
+    const discoveries = workspaceInfoToSetupDiscoveries(setupIssues);
+    const newCount = this.discoveryStore.merge(discoveries);
+    this.logger.info(
+      `Merged ${discoveries.length} setup issues (${newCount} new)`,
+    );
+  }
+
+  private updateStatusBar(
+    state: 'signedOut' | 'noProject' | 'project',
+    projectName?: string,
+  ): void {
+    switch (state) {
+      case 'signedOut':
+        this.statusBar.text = '$(sign-in) PostHog: Sign In';
+        this.statusBar.command = 'posthog.signIn';
+        this.statusBar.tooltip = 'Click to sign in to PostHog';
+        break;
+      case 'noProject':
+        this.statusBar.text = '$(folder) PostHog: Select Project';
+        this.statusBar.command = 'posthog.selectProject';
+        this.statusBar.tooltip = 'Click to select a project';
+        break;
+      case 'project':
+        this.statusBar.text = `$(pulse) PostHog: ${projectName ?? 'Unknown'}`;
+        this.statusBar.command = 'posthog.selectProject';
+        this.statusBar.tooltip = 'Click to switch project';
+        break;
+    }
+  }
+}
+
+async function setContextKeys(
+  authenticated: boolean,
+  projectSelected: boolean,
+): Promise<void> {
+  await vscode.commands.executeCommand(
+    'setContext',
+    'posthog.authenticated',
+    authenticated,
+  );
+  await vscode.commands.executeCommand(
+    'setContext',
+    'posthog.projectSelected',
+    projectSelected,
+  );
+}
+
+function formatToolProgress(toolName: string, arg: string): string {
+  switch (toolName) {
+    case 'readFile':
+      return arg ? `Reading ${arg}` : 'Reading file';
+    case 'listDirectory':
+      return arg === '.' ? 'Listing root directory' : `Listing ${arg}`;
+    case 'searchCode':
+      return arg ? `Searching for "${arg}"` : 'Searching code';
+    case 'checkEnvKeys':
+      return 'Checking environment';
+    default:
+      return `Running ${toolName}`;
+  }
+}
+
+function showSignInNotification(): void {
+  void vscode.window
+    .showInformationMessage(
+      'Sign in to PostHog to monitor errors and get AI-powered fixes.',
+      'Sign In',
+    )
+    .then((action) => {
+      if (action === 'Sign In') {
+        void vscode.commands.executeCommand('posthog.signIn');
+      }
+    });
+}

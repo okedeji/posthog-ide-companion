@@ -1,6 +1,6 @@
 import type { ErrorTrackingIssue } from '../api/schemas';
 
-export type DiscoveryKind = 'error';
+export type DiscoveryKind = 'error' | 'setup_issue';
 // Future: | 'flag_alert' | 'anomaly'
 
 export type DiscoverySeverity = 'info' | 'warning' | 'critical';
@@ -17,3 +17,11 @@ export type Discovery<T = unknown> = {
 };
 
 export type ErrorDiscovery = Discovery<ErrorTrackingIssue>;
+
+export type SetupIssueSource = {
+  checkId: string;
+  evidence: string[];
+  remediation: string;
+};
+
+export type SetupIssueDiscovery = Discovery<SetupIssueSource>;

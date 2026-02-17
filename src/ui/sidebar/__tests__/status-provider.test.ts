@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { PostHogSidebarProvider } from '../sidebar/sidebar-provider';
-import type { PostHogProject } from '../../auth/schemas';
-import type { WorkspaceInfo } from '../../ai/types';
+import { StatusProvider } from '../status-provider';
+import type { PostHogProject } from '../../../auth/schemas';
+import type { WorkspaceInfo } from '../../../ai/types';
 
 const sampleProject: PostHogProject = {
   id: 42,
@@ -21,11 +21,12 @@ const sampleWorkspaceInfo: WorkspaceInfo = {
   buildTools: ['tsc', 'esbuild'],
   projectStructure: 'single-package',
   notablePatterns: [],
+  setupIssues: [],
   detectedAt: new Date().toISOString(),
 };
 
 /** Resolves root items from the provider as TreeItems. */
-function getItems(provider: PostHogSidebarProvider): vscode.TreeItem[] {
+function getItems(provider: StatusProvider): vscode.TreeItem[] {
   return provider.getChildren().map((c) => provider.getTreeItem(c));
 }
 
@@ -37,18 +38,18 @@ function findItem(
   return items.find((i) => i.label === label);
 }
 
-describe('PostHogSidebarProvider', () => {
+describe('StatusProvider', () => {
   it('has the correct static view type', () => {
-    expect(PostHogSidebarProvider.viewType).toBe('posthog.sidebar');
+    expect(StatusProvider.viewType).toBe('posthog.sidebar');
   });
 
   it('returns no items when no project is set', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     expect(provider.getChildren()).toEqual([]);
   });
 
   it('returns five items when a project is set', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -56,7 +57,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows project name and organization', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -67,7 +68,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows region in uppercase', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'eu');
 
     const items = getItems(provider);
@@ -77,7 +78,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows "Unknown" when region is undefined', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, undefined);
 
     const items = getItems(provider);
@@ -87,7 +88,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows project ID as a string', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -97,7 +98,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows "Not configured" when AI is not set', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -107,7 +108,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows model label when AI is configured', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setAISelection(
       { provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' },
@@ -121,7 +122,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows language and frameworks in workspace row', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
 
@@ -132,7 +133,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows only language when no frameworks detected', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setWorkspaceDetection('complete', {
       ...sampleWorkspaceInfo,
@@ -146,7 +147,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('assigns ThemeIcon to each item', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -157,7 +158,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('sets all items to non-collapsible', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -168,7 +169,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('appends workspace detail rows when detection is complete', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
 
@@ -183,7 +184,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('shows correct descriptions in workspace detail rows', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
 
@@ -199,7 +200,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('does not append detail rows when detection has not run', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     const items = getItems(provider);
@@ -213,7 +214,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('fires onDidChangeTreeData when setProject is called', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     const listener = jest.fn();
     provider.onDidChangeTreeData(listener);
 
@@ -223,7 +224,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('fires onDidChangeTreeData when setAISelection is called', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     const listener = jest.fn();
     provider.onDidChangeTreeData(listener);
 
@@ -233,7 +234,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('returns dashboard URL for valid project and region', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
 
     expect(provider.getDashboardUrl()).toBe(
@@ -242,19 +243,19 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('returns undefined dashboard URL when no project is set', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     expect(provider.getDashboardUrl()).toBeUndefined();
   });
 
   it('returns undefined dashboard URL when region is missing', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, undefined);
 
     expect(provider.getDashboardUrl()).toBeUndefined();
   });
 
   it('includes detail rows in total count when detected', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
 
@@ -262,7 +263,7 @@ describe('PostHogSidebarProvider', () => {
   });
 
   it('clears items when project is set to undefined', () => {
-    const provider = new PostHogSidebarProvider();
+    const provider = new StatusProvider();
     provider.setProject(sampleProject, 'us');
     expect(provider.getChildren()).toHaveLength(5);
 

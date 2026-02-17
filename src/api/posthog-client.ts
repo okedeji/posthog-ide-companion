@@ -12,8 +12,11 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: ApiError };
 
-/** Resolves a fresh access token. Used so the client always has a valid token. */
 export type TokenResolver = () => Promise<string | undefined>;
+
+const MAX_RETRIES = 2;
+const BACKOFF_BASE_MS = 1_000;
+const BACKOFF_MAX_MS = 10_000;
 
 /** Thin HTTP client for PostHog project-scoped API calls. */
 export class PostHogApiClient {
@@ -27,12 +30,10 @@ export class PostHogApiClient {
     this.baseUrl = `${CLOUD_URLS[region]}/api/projects/${projectId}`;
   }
 
-  /** GET a project-scoped path and validate the response with a Zod schema. */
   async get<T>(path: string, schema: z.ZodType<T>): Promise<ApiResult<T>> {
     return this.request('GET', path, undefined, schema);
   }
 
-  /** POST to a project-scoped path and validate the response with a Zod schema. */
   async post<T>(
     path: string,
     body: unknown,
@@ -56,17 +57,18 @@ export class PostHogApiClient {
     }
 
     const url = `${this.baseUrl}${path}`;
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    };
 
     let response: Response;
     try {
-      response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      });
+      response = await this.fetchWithRetry(url, fetchOptions);
     } catch (err) {
       return {
         ok: false,
@@ -97,6 +99,34 @@ export class PostHogApiClient {
 
     return { ok: true, data: parsed.data };
   }
+
+  /** Retries on 429 with exponential backoff, respecting Retry-After. */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
+    let response = await fetch(url, options);
+
+    for (
+      let attempt = 0;
+      attempt < MAX_RETRIES && response.status === 429;
+      attempt++
+    ) {
+      const retryAfter = response.headers.get('Retry-After');
+      const delayMs = retryAfter
+        ? Math.min(Number(retryAfter) * 1_000, BACKOFF_MAX_MS)
+        : Math.min(BACKOFF_BASE_MS * 2 ** attempt, BACKOFF_MAX_MS);
+
+      await sleep(delayMs);
+      response = await fetch(url, options);
+    }
+
+    return response;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function classifyHttpError(status: number): ApiError {

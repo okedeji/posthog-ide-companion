@@ -18,13 +18,8 @@ const MAX_SEARCH_RESULTS = 50;
  * Patterns are matched against the basename (not the full path).
  */
 export const SENSITIVE_FILE_PATTERNS: readonly string[] = [
-  // Environment files
+  // Environment files (.env is prefix-matched: catches .env, .env.local, etc.)
   '.env',
-  '.env.local',
-  '.env.development',
-  '.env.production',
-  '.env.staging',
-  '.env.test',
   '.envrc',
   // Private keys and certificates
   '*.pem',
@@ -94,8 +89,6 @@ const EXCLUDED_DIRS = [
   '.idea',
   '.vscode',
 ];
-
-// Tool definitions (JSON Schema for the LLM)
 
 /** Tool definitions for workspace exploration. Shared across features. */
 export const WORKSPACE_TOOLS: ToolDefinition[] = [
@@ -201,8 +194,6 @@ export const WORKSPACE_TOOLS: ToolDefinition[] = [
   },
 ];
 
-// Tool executor factory
-
 /**
  * Creates a tool executor bound to a workspace root directory.
  *
@@ -230,8 +221,6 @@ export function createWorkspaceExecutor(workspaceRoot: string): ToolExecutor {
     }
   };
 }
-
-// Tool implementations (internal)
 
 async function executeReadFile(
   root: string,
@@ -345,8 +334,6 @@ async function executeSearchCode(
   }
 }
 
-// Env file tools (safe .env interaction)
-
 /**
  * Checks which keys are present or missing in a .env file.
  * Never reveals values — only returns "present" or "missing" per key.
@@ -375,7 +362,6 @@ async function executeCheckEnvKeys(
     return 'Error: path is outside the workspace';
   }
 
-  // Parse existing keys from the file (if it exists)
   const existingKeys = new Set<string>();
   try {
     const content = await fs.readFile(resolved, 'utf-8');
@@ -385,8 +371,8 @@ async function executeCheckEnvKeys(
         existingKeys.add(match[1]);
       }
     }
-  } catch {
-    // File doesn't exist, all keys are missing
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 
   const results: Record<string, 'present' | 'missing'> = {};
@@ -435,8 +421,8 @@ async function executeSetEnvValues(
   try {
     const content = await fs.readFile(resolved, 'utf-8');
     lines = content.split('\n');
-  } catch {
-    // File doesn't exist yet, will be created below
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 
   const updatedKeys = new Set<string>();
@@ -478,8 +464,8 @@ async function ensureGitignoreCoverage(
 
   try {
     content = await fs.readFile(gitignorePath, 'utf-8');
-  } catch {
-    // .gitignore doesn't exist, will create it
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 
   const lines = content.split('\n');
@@ -503,8 +489,6 @@ async function ensureGitignoreCoverage(
     );
   }
 }
-
-// Utilities (internal)
 
 /**
  * Resolves a relative path within the workspace root, following symlinks.
@@ -535,9 +519,10 @@ async function resolveSafePath(
     }
 
     return realPath;
-  } catch {
+  } catch (err) {
     // File doesn't exist yet; the lexical check passed so allow it through.
     // readFile/listDirectory will produce their own ENOENT errors downstream.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     return resolved;
   }
 }

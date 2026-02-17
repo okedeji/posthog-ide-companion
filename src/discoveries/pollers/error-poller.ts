@@ -80,7 +80,6 @@ function formatRelativeTime(isoDate: string): string {
   return `${days}d ago`;
 }
 
-/** Creates an error poller that fetches active issues and merges them into the store. */
 export function createErrorPoller(
   client: PostHogApiClient,
   store: DiscoveryStore,
@@ -99,7 +98,9 @@ export function createErrorPoller(
       );
 
       if (!result.ok) {
-        logger.error(`[errors] API error: ${result.error.message}`);
+        logger.error(
+          `[errors] API error (${result.error.code}): ${result.error.message}`,
+        );
         return;
       }
 

@@ -39,8 +39,13 @@ export enum ConfigurationTarget {
   WorkspaceFolder = 3,
 }
 
+export const authentication = {
+  registerAuthenticationProvider: jest.fn(() => ({ dispose: () => undefined })),
+  getSession: jest.fn(async () => undefined),
+};
+
 export const commands = {
-  registerCommand: () => ({ dispose: () => undefined }),
+  registerCommand: jest.fn(() => ({ dispose: () => undefined })),
   executeCommand: jest.fn(async () => undefined),
 };
 
@@ -48,10 +53,23 @@ export const env = {
   openExternal: jest.fn(async () => true),
 };
 
+export enum StatusBarAlignment {
+  Left = 1,
+  Right = 2,
+}
+
+export enum ProgressLocation {
+  SourceControl = 1,
+  Window = 10,
+  Notification = 15,
+}
+
 export class TreeItem {
   label: string;
-  constructor(label: string) {
+  collapsibleState?: number;
+  constructor(label: string, collapsibleState?: number) {
     this.label = label;
+    this.collapsibleState = collapsibleState;
   }
 }
 
@@ -80,10 +98,19 @@ export class EventEmitter {
   }
 }
 
-export class ThemeIcon {
+export class ThemeColor {
   readonly id: string;
   constructor(id: string) {
     this.id = id;
+  }
+}
+
+export class ThemeIcon {
+  readonly id: string;
+  readonly color?: ThemeColor;
+  constructor(id: string, color?: ThemeColor) {
+    this.id = id;
+    this.color = color;
   }
 }
 

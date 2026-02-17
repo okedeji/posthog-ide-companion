@@ -67,7 +67,7 @@
       },
       {
         "view": "posthog.discoveries",
-        "contents": "No errors detected yet. Polling for new issues...\n[Refresh Now](command:posthog.refreshDiscoveries)",
+        "contents": "No issues detected yet.\n[Refresh Now](command:posthog.refreshDiscoveries)",
         "when": "posthog.authenticated && posthog.projectSelected"
       }
     ],
