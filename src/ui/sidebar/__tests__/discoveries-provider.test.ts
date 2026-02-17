@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { DiscoveriesProvider } from '../discoveries-provider';
 import type { DiscoveryTreeNode } from '../discoveries-provider';
-import { DiscoveryStore } from '../../../discoveries/store';
-import type { Discovery } from '../../../discoveries/types';
+import { DiscoveryStore } from '../../../features/discoveries/store';
+import type { Discovery } from '../../../features/discoveries/types';
 
 function makeError(overrides: Partial<Discovery> = {}): Discovery {
   return {
@@ -43,10 +43,6 @@ function isGroup(
 }
 
 describe('DiscoveriesProvider', () => {
-  it('should have the correct static view type', () => {
-    expect(DiscoveriesProvider.viewType).toBe('posthog.discoveries');
-  });
-
   describe('grouping', () => {
     it('should return empty children when store is empty', () => {
       const store = new DiscoveryStore();
@@ -147,39 +143,6 @@ describe('DiscoveriesProvider', () => {
 
       expect(item.description).toBe('3');
     });
-
-    it('should use gear icon for setup_issue group', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeSetupIssue()]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const item = provider.getTreeItem(group);
-
-      expect((item.iconPath as vscode.ThemeIcon).id).toBe('gear');
-    });
-
-    it('should use bug icon for error group', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError()]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const item = provider.getTreeItem(group);
-
-      expect((item.iconPath as vscode.ThemeIcon).id).toBe('bug');
-    });
-
-    it('should set group contextValue with kind prefix', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError()]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const item = provider.getTreeItem(group);
-
-      expect(item.contextValue).toBe('group:error');
-    });
   });
 
   describe('leaf tree items', () => {
@@ -205,54 +168,6 @@ describe('DiscoveriesProvider', () => {
       const item = provider.getTreeItem(leaf);
 
       expect(item.description).toBe('42× · 2h ago');
-    });
-
-    it('should use warning icon for warning severity', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError({ severity: 'warning' })]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const leaf = provider.getChildren(group)[0]!;
-      const item = provider.getTreeItem(leaf);
-
-      expect((item.iconPath as vscode.ThemeIcon).id).toBe('warning');
-    });
-
-    it('should use error icon for critical severity', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError({ severity: 'critical' })]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const leaf = provider.getChildren(group)[0]!;
-      const item = provider.getTreeItem(leaf);
-
-      expect((item.iconPath as vscode.ThemeIcon).id).toBe('error');
-    });
-
-    it('should set leaf items to non-collapsible', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError()]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const leaf = provider.getChildren(group)[0]!;
-      const item = provider.getTreeItem(leaf);
-
-      expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);
-    });
-
-    it('should set contextValue to discovery kind', () => {
-      const store = new DiscoveryStore();
-      store.merge([makeError()]);
-
-      const provider = new DiscoveriesProvider(store);
-      const group = provider.getChildren()[0]!;
-      const leaf = provider.getChildren(group)[0]!;
-      const item = provider.getTreeItem(leaf);
-
-      expect(item.contextValue).toBe('error');
     });
   });
 

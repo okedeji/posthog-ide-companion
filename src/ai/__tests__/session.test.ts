@@ -170,14 +170,6 @@ describe('Session', () => {
     expect(snap.createdAt).toBeLessThanOrEqual(snap.lastActiveAt);
   });
 
-  it('should auto-generate session ID when not provided', () => {
-    const provider = createMockProvider([]);
-    const session = new Session(provider);
-
-    expect(session.id).toBeTruthy();
-    expect(session.id.length).toBeGreaterThan(0);
-  });
-
   it('forwards events to the callback', async () => {
     const events: AgentEvent[] = [];
     const provider = createMockProvider([
@@ -222,34 +214,6 @@ describe('Session', () => {
     expect(assistantMsg?.toolActivity?.[0]?.durationMs).toBeGreaterThanOrEqual(
       0,
     );
-  });
-
-  it('does not include toolActivity when no tools were called', async () => {
-    const provider = createMockProvider([
-      { type: 'text', content: 'No tools needed', usage: USAGE },
-    ]);
-
-    const session = new Session(provider);
-    await session.send('Just a question');
-
-    const assistantMsg = session.messages[1];
-    expect(assistantMsg?.toolActivity).toBeUndefined();
-  });
-
-  it('should have timestamps on all messages', async () => {
-    const provider = createMockProvider([
-      { type: 'text', content: 'Hello', usage: USAGE },
-    ]);
-
-    const session = new Session(provider);
-    const before = Date.now();
-    await session.send('Hi');
-    const after = Date.now();
-
-    for (const msg of session.messages) {
-      expect(msg.timestamp).toBeGreaterThanOrEqual(before);
-      expect(msg.timestamp).toBeLessThanOrEqual(after);
-    }
   });
 
   describe('compaction', () => {

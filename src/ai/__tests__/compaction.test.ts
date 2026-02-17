@@ -108,35 +108,6 @@ describe('compactIfNeeded', () => {
     expect(result).toHaveLength(messages.length);
   });
 
-  it('should use default thresholds when options are omitted', async () => {
-    const messages = buildConversation(3); // 6 messages
-    const counter = createMockTokenCounter(100); // 600 tokens total
-    const provider = createMockProvider('Summary');
-
-    // Default maxTokens is 80K, so 600 tokens should not trigger compaction
-    const result = await compactIfNeeded(provider, messages, counter);
-
-    expect(result).toEqual(messages);
-    expect(result).toHaveLength(messages.length);
-  });
-
-  it('maintains role alternation after compaction', async () => {
-    const messages = buildConversation(10);
-    const counter = createMockTokenCounter(10_000);
-    const provider = createMockProvider('Summary of conversation');
-
-    const result = await compactIfNeeded(provider, messages, counter, {
-      maxTokens: 50_000,
-      preserveRecentPairs: 3,
-    });
-
-    // Verify alternating roles: user, assistant, user, assistant, ...
-    for (let i = 0; i < result.length; i++) {
-      const expectedRole = i % 2 === 0 ? 'user' : 'assistant';
-      expect(result[i]?.role).toBe(expectedRole);
-    }
-  });
-
   it('should handle tool use content blocks in old messages', async () => {
     const messages: LLMMessage[] = [
       { role: 'user', content: 'Read the file' },

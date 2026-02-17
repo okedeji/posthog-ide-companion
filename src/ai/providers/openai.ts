@@ -11,20 +11,12 @@ import type {
   TokenUsage,
 } from '../types';
 
-/** Default model when none is specified during setup. */
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.2';
 
-/**
- * LLM provider backed by the OpenAI Responses API.
- *
- * Wraps the `openai` SDK. Converts our normalized message and tool
- * types to OpenAI's Responses API format and back. Does not run tool loops.
- */
 export class OpenAIProvider implements LLMProvider {
   readonly name = 'openai';
   private readonly client: OpenAI;
 
-  /** @param apiKey - OpenAI API key (e.g. "sk-..."). */
   constructor(apiKey: string) {
     this.client = new OpenAI({ apiKey });
   }
@@ -109,7 +101,6 @@ export class OpenAIProvider implements LLMProvider {
   }
 }
 
-/** Converts our normalized messages to OpenAI Responses API input items. */
 function toOpenAIInput(messages: LLMMessage[]): OpenAI.Responses.ResponseInput {
   const input: OpenAI.Responses.ResponseInputItem[] = [];
 

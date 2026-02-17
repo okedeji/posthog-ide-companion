@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { ExtensionHost } from './extension-host';
 import { createLogger } from './utils/logger';
 
-/** Extension entry point — creates the host and kicks off initialization. */
 export function activate(context: vscode.ExtensionContext): void {
   const channel = vscode.window.createOutputChannel('PostHog');
   const logger = createLogger(channel);

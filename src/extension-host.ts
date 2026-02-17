@@ -2,41 +2,38 @@ import * as vscode from 'vscode';
 import { PostHogAuthProvider } from './auth/provider';
 import { StatusProvider } from './ui/sidebar/status-provider';
 import {
-  fetchProjects,
-  showProjectPicker,
   getActiveProject,
   setActiveProject,
   clearActiveProject,
-} from './auth/project-manager';
+} from './auth/project-state';
+import { showProjectPicker } from './ui/pickers/project';
 import { AUTH_PROVIDER_ID } from './auth/constants';
 import type { CloudRegion } from './auth/constants';
+import { fetchProjects } from './api/client';
+import { showAISetupFlow, showAIReconfigureMenu } from './ui/pickers/ai-setup';
+import { getModelLabel } from './ai/models';
 import {
-  showAISetupFlow,
-  showAIReconfigureMenu,
+  getAIConfig,
+  hasApiKey,
+  createProvider,
   getActiveAISelection,
   setActiveAISelection,
-  getModelLabel,
-} from './ai/selection-manager';
-import { getAIConfig, hasApiKey, createProvider } from './ai/config';
-import type { WorkspaceInfo } from './ai/types';
+} from './ai/config';
+import type { WorkspaceInfo } from './workspace/types';
+import { detectWorkspace } from './workspace/detection';
 import {
-  detectWorkspace,
   getStoredWorkspaceInfo,
   setStoredWorkspaceInfo,
   isWorkspaceInfoStale,
-} from './ai/workspace-detection';
+} from './workspace/storage';
 import type { Logger } from './utils/logger';
-import { PostHogApiClient } from './api/posthog-client';
-import { DiscoveryStore } from './discoveries/store';
+import { PostHogApiClient } from './api/client';
+import { DiscoveryStore } from './features/discoveries/store';
 import { DiscoveriesProvider } from './ui/sidebar/discoveries-provider';
-import { createErrorPoller } from './discoveries/pollers/error-poller';
-import { workspaceInfoToSetupDiscoveries } from './discoveries/scanners/setup-issues';
-import type { Poller } from './discoveries/poller';
+import { createErrorPoller } from './features/discoveries/pollers/error-poller';
+import { workspaceInfoToSetupDiscoveries } from './features/discoveries/scanners/setup-issues';
+import type { Poller } from './features/discoveries/poller';
 
-/**
- * Owns all extension state and command handlers.
- * Created once in `activate()`, disposed via `context.subscriptions`.
- */
 export class ExtensionHost implements vscode.Disposable {
   private readonly authProvider: PostHogAuthProvider;
   private readonly sidebarProvider: StatusProvider;
@@ -360,14 +357,14 @@ export class ExtensionHost implements vscode.Disposable {
         this.sidebarProvider.setWorkspaceDetection('failed');
         this.logger.info('Workspace detection returned no results');
         void vscode.window.showWarningMessage(
-          'PostHog: Could not analyze workspace. You can retry via Command Palette → "PostHog: Detect Workspace".',
+          'PostHog: Could not analyze workspace. You can retry via Command Palette -> "PostHog: Detect Workspace".',
         );
       }
     } catch (err) {
       this.sidebarProvider.setWorkspaceDetection('failed');
       this.logger.error('Workspace detection failed', err);
       void vscode.window.showWarningMessage(
-        'PostHog: Workspace detection failed. You can retry via Command Palette → "PostHog: Detect Workspace".',
+        'PostHog: Workspace detection failed. You can retry via Command Palette -> "PostHog: Detect Workspace".',
       );
     } finally {
       detectionStatus.dispose();

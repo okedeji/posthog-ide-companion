@@ -118,5 +118,8 @@ export class Uri {
   static parse(value: string): Uri {
     return new Uri(value);
   }
+  static file(path: string): Uri {
+    return new Uri(path);
+  }
   private constructor(public readonly fsPath: string) {}
 }

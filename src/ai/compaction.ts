@@ -10,11 +10,6 @@ const DEFAULT_MAX_TOKENS = 80_000;
 const DEFAULT_PRESERVE_RECENT_PAIRS = 4;
 const SUMMARY_MAX_TOKENS = 1024;
 
-/**
- * Checks whether compaction is needed and compacts if so.
- * Splits at `preserveRecentPairs` boundary, summarizes old messages,
- * and prepends [summary, assistant acknowledgment, ...recent messages].
- */
 export async function compactIfNeeded(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -81,7 +76,6 @@ async function summarizeMessages(
   return `[Conversation Summary]\n${buildFallbackSummary(messages)}`;
 }
 
-/** Strips tool blocks down to names/results to keep the summary request small. */
 function formatMessagesForSummary(messages: LLMMessage[]): string {
   const lines: string[] = ['Please summarize the following conversation:', ''];
 
@@ -91,7 +85,6 @@ function formatMessagesForSummary(messages: LLMMessage[]): string {
     if (typeof msg.content === 'string') {
       lines.push(`${role}: ${msg.content}`);
     } else {
-      // Condense content blocks into a readable format
       const parts: string[] = [];
       for (const block of msg.content) {
         switch (block.type) {
@@ -113,7 +106,6 @@ function formatMessagesForSummary(messages: LLMMessage[]): string {
   return lines.join('\n');
 }
 
-/** Fallback: extracts user messages when the LLM can't summarize properly. */
 function buildFallbackSummary(messages: LLMMessage[]): string {
   const userMessages = messages
     .filter((m) => m.role === 'user')

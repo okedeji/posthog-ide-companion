@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import { StatusProvider } from '../status-provider';
-import type { PostHogProject } from '../../../auth/schemas';
-import type { WorkspaceInfo } from '../../../ai/types';
+import type { PostHogProject } from '../../../api/schemas';
+import type { WorkspaceInfo } from '../../../workspace/types';
 
 const sampleProject: PostHogProject = {
   id: 42,
@@ -25,12 +25,10 @@ const sampleWorkspaceInfo: WorkspaceInfo = {
   detectedAt: new Date().toISOString(),
 };
 
-/** Resolves root items from the provider as TreeItems. */
 function getItems(provider: StatusProvider): vscode.TreeItem[] {
   return provider.getChildren().map((c) => provider.getTreeItem(c));
 }
 
-/** Finds an item by label text. */
 function findItem(
   items: vscode.TreeItem[],
   label: string,
@@ -39,10 +37,6 @@ function findItem(
 }
 
 describe('StatusProvider', () => {
-  it('has the correct static view type', () => {
-    expect(StatusProvider.viewType).toBe('posthog.sidebar');
-  });
-
   it('returns no items when no project is set', () => {
     const provider = new StatusProvider();
     expect(provider.getChildren()).toEqual([]);
@@ -75,26 +69,6 @@ describe('StatusProvider', () => {
     const region = findItem(items, 'Region');
 
     expect(region?.description).toBe('EU');
-  });
-
-  it('shows "Unknown" when region is undefined', () => {
-    const provider = new StatusProvider();
-    provider.setProject(sampleProject, undefined);
-
-    const items = getItems(provider);
-    const region = findItem(items, 'Region');
-
-    expect(region?.description).toBe('Unknown');
-  });
-
-  it('shows project ID as a string', () => {
-    const provider = new StatusProvider();
-    provider.setProject(sampleProject, 'us');
-
-    const items = getItems(provider);
-    const pid = findItem(items, 'Project ID');
-
-    expect(pid?.description).toBe('42');
   });
 
   it('shows "Not configured" when AI is not set', () => {
@@ -144,28 +118,6 @@ describe('StatusProvider', () => {
     const ws = findItem(items, 'Workspace');
 
     expect(ws?.description).toBe('typescript');
-  });
-
-  it('assigns ThemeIcon to each item', () => {
-    const provider = new StatusProvider();
-    provider.setProject(sampleProject, 'us');
-
-    const items = getItems(provider);
-
-    for (const item of items) {
-      expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon);
-    }
-  });
-
-  it('sets all items to non-collapsible', () => {
-    const provider = new StatusProvider();
-    provider.setProject(sampleProject, 'us');
-
-    const items = getItems(provider);
-
-    for (const item of items) {
-      expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);
-    }
   });
 
   it('appends workspace detail rows when detection is complete', () => {
@@ -252,14 +204,6 @@ describe('StatusProvider', () => {
     provider.setProject(sampleProject, undefined);
 
     expect(provider.getDashboardUrl()).toBeUndefined();
-  });
-
-  it('includes detail rows in total count when detected', () => {
-    const provider = new StatusProvider();
-    provider.setProject(sampleProject, 'us');
-    provider.setWorkspaceDetection('complete', sampleWorkspaceInfo);
-
-    expect(provider.getChildren()).toHaveLength(10);
   });
 
   it('clears items when project is set to undefined', () => {

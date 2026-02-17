@@ -18,24 +18,8 @@ import type {
   ToolActivity,
 } from './types';
 
-/**
- * A multi-turn conversation session.
- *
- * Wraps the agent loop with persistent conversation history.
- * Each call to `send()` appends the user message, runs the agent loop
- * with full history, and appends the assistant response.
- *
- * Maintains two message lists:
- * - `_messages` (SessionMessage[]) — display history for the UI.
- *   Has timestamps, text content, and tool activity attached to each
- *   assistant message so the UI can render tool calls inline.
- * - `_llmMessages` (LLMMessage[]) — full conversation for the LLM API.
- *   Uses the LLM's message format (content can be string or content
- *   blocks including tool_use and tool_result).
- *
- * The session is a pure logic layer — it does not handle UI, streaming,
- * or persistence. Features build on top of it.
- */
+// Multi-turn conversation. Keeps two histories: _messages for the UI (with
+// timestamps + tool activity) and _llmMessages for the API (with content blocks).
 export class Session {
   readonly id: string;
   private readonly _provider: LLMProvider;
@@ -75,18 +59,6 @@ export class Session {
     return this._isRunning;
   }
 
-  /**
-   * Sends a user message and returns the assistant's response.
-   *
-   * Appends the user message to both histories, runs the agent loop
-   * with the full LLM conversation, and appends the assistant's final
-   * text response to both histories. Tool activity from the agent loop
-   * is collected and attached to the assistant message.
-   *
-   * @param message - The user's message text.
-   * @returns The agent result containing the assistant's response.
-   * @throws If a send is already in progress (sessions are single-threaded).
-   */
   async send(message: string): Promise<AgentResult> {
     if (this._isRunning) {
       throw new Error('Session is already processing a message');
@@ -95,7 +67,6 @@ export class Session {
     this._isRunning = true;
     this._lastActiveAt = Date.now();
 
-    // Collect tool activity during this turn
     const toolActivity: ToolActivity[] = [];
 
     try {
@@ -106,9 +77,7 @@ export class Session {
       });
       this._llmMessages.push({ role: 'user', content: message });
 
-      // Compact conversation history if enabled and over the token limit.
-      // This replaces older messages with a summary, keeping recent turns
-      // intact so the LLM has immediate context.
+      // Compact old messages into a summary when the conversation gets too long
       if (this._compaction) {
         this._llmMessages = await compactIfNeeded(
           this._provider,
@@ -118,7 +87,6 @@ export class Session {
         );
       }
 
-      // Intercept events to collect tool activity, then forward to external callback
       const result = await runAgentLoop(
         this._provider,
         this._llmMessages,
@@ -167,10 +135,6 @@ export class Session {
   }
 }
 
-/**
- * Collects tool call results from agent events into a ToolActivity array.
- * Only `tool_call_result` events produce activity records.
- */
 function collectToolActivity(
   event: AgentEvent,
   activity: ToolActivity[],
@@ -185,7 +149,6 @@ function collectToolActivity(
   }
 }
 
-/** Default executor that returns an error for any tool call. */
 async function defaultExecutor(): Promise<string> {
   return 'Error: no tool executor configured for this session';
 }

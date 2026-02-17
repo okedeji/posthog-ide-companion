@@ -11,22 +11,14 @@ import type {
   TokenUsage,
 } from '../types';
 
-/** Default model when none is specified during setup. */
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
 const DEFAULT_MAX_TOKENS = 4096;
 
-/**
- * LLM provider backed by the Anthropic Messages API.
- *
- * Wraps `@anthropic-ai/sdk`. Converts our normalized message and tool
- * types to Anthropic's format and back. Does not run tool loops.
- */
 export class AnthropicProvider implements LLMProvider {
   readonly name = 'anthropic';
   private readonly client: Anthropic;
 
-  /** @param apiKey - Anthropic API key (e.g. "sk-ant-..."). */
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey });
   }

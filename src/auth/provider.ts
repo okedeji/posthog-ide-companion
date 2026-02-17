@@ -5,7 +5,6 @@ import { AUTH_PROVIDER_ID, CLOUD_URLS } from './constants';
 import { AccountSchema, UserInfoSchema } from './schemas';
 import { performOAuthFlow, refreshAccessToken } from './oauth';
 
-/** Keys used to persist auth state in VSCode SecretStorage. */
 const SECRET_KEYS = {
   accessToken: 'posthog.accessToken',
   refreshToken: 'posthog.refreshToken',
@@ -15,13 +14,6 @@ const SECRET_KEYS = {
   account: 'posthog.account',
 } as const;
 
-/**
- * PostHog authentication provider for VSCode.
- *
- * Implements the VSCode AuthenticationProvider interface to manage
- * OAuth sessions. Tokens are stored in SecretStorage (OS keychain)
- * and synchronized across VSCode windows.
- */
 export class PostHogAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
 {
@@ -51,7 +43,6 @@ export class PostHogAuthProvider
     this._onDidChangeSessions.dispose();
   }
 
-  /** Refreshes the token if expired. */
   async getSessions(
     _scopes?: readonly string[],
   ): Promise<vscode.AuthenticationSession[]> {
@@ -66,7 +57,7 @@ export class PostHogAuthProvider
       if (!refreshed) {
         return [];
       }
-      // Re-read after refresh — tryRefresh stores the new token
+      // Re-read after refresh - tryRefresh stores the new token
       token = await this.secretStorage.get(SECRET_KEYS.accessToken);
       if (!token) {
         return [];
@@ -86,7 +77,6 @@ export class PostHogAuthProvider
     ];
   }
 
-  /** OAuth PKCE + DCR flow. Opens the browser for authorization. */
   async createSession(
     _scopes: readonly string[],
   ): Promise<vscode.AuthenticationSession> {
@@ -111,7 +101,6 @@ export class PostHogAuthProvider
     await this.secretStorage.store(SECRET_KEYS.region, region);
     await this.secretStorage.store(SECRET_KEYS.clientId, clientId);
 
-    // Fetch user info to populate the account label
     const account = await this.fetchAccountInfo(
       tokenResponse.access_token,
       region,
@@ -139,7 +128,6 @@ export class PostHogAuthProvider
     return session;
   }
 
-  /** Clears all stored secrets and fires the session-removed event. */
   async removeSession(_sessionId: string): Promise<void> {
     const previousToken = this._cachedToken;
     const account = await this.readAccount();
@@ -165,7 +153,6 @@ export class PostHogAuthProvider
     }
   }
 
-  /** May trigger a token refresh over the network. */
   async getValidToken(): Promise<
     { token: string; region: CloudRegion } | undefined
   > {

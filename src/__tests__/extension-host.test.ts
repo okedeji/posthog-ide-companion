@@ -4,37 +4,43 @@ import type { Logger } from '../utils/logger';
 
 jest.mock('../auth/provider');
 jest.mock('../ui/sidebar/status-provider');
-jest.mock('../discoveries/store');
+jest.mock('../features/discoveries/store');
 jest.mock('../ui/sidebar/discoveries-provider');
-jest.mock('../discoveries/pollers/error-poller');
-jest.mock('../discoveries/scanners/setup-issues');
-jest.mock('../auth/project-manager');
-jest.mock('../ai/selection-manager');
+jest.mock('../features/discoveries/pollers/error-poller');
+jest.mock('../features/discoveries/scanners/setup-issues');
+jest.mock('../auth/project-state');
+jest.mock('../api/client');
+jest.mock('../ui/pickers/project');
+jest.mock('../ui/pickers/ai-setup');
+jest.mock('../ai/models');
 jest.mock('../ai/config');
-jest.mock('../ai/workspace-detection');
+jest.mock('../workspace/detection');
+jest.mock('../workspace/storage');
 
 import { PostHogAuthProvider } from '../auth/provider';
 import { StatusProvider } from '../ui/sidebar/status-provider';
-import { DiscoveryStore } from '../discoveries/store';
+import { DiscoveryStore } from '../features/discoveries/store';
 import { DiscoveriesProvider } from '../ui/sidebar/discoveries-provider';
-import { createErrorPoller } from '../discoveries/pollers/error-poller';
+import { createErrorPoller } from '../features/discoveries/pollers/error-poller';
 import {
   getActiveProject,
   setActiveProject,
-  fetchProjects,
-  showProjectPicker,
   clearActiveProject,
-} from '../auth/project-manager';
+} from '../auth/project-state';
+import { fetchProjects } from '../api/client';
+import { showProjectPicker } from '../ui/pickers/project';
+import { getModelLabel } from '../ai/models';
 import {
+  getAIConfig,
+  hasApiKey,
+  createProvider,
   getActiveAISelection,
   setActiveAISelection,
-  getModelLabel,
-} from '../ai/selection-manager';
-import { getAIConfig, hasApiKey, createProvider } from '../ai/config';
+} from '../ai/config';
 import {
   getStoredWorkspaceInfo,
   isWorkspaceInfoStale,
-} from '../ai/workspace-detection';
+} from '../workspace/storage';
 
 // Cast module-level mocks
 const mockRegisterCommand = vscode.commands.registerCommand as jest.Mock;

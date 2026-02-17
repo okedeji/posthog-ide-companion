@@ -1,9 +1,6 @@
-import type { PromptSection, WorkspaceInfo } from './types';
+import type { PromptSection } from './types';
+import type { WorkspaceInfo } from '../workspace/types';
 
-/**
- * Foundation system prompt — always the first section (priority 0).
- * Features add domain-specific instructions via `addSection()`.
- */
 export const FOUNDATION_PROMPT = `You are an AI assistant integrated into a developer's IDE, helping them understand and work with their PostHog analytics data and codebase.
 
 ## Core Behavior
@@ -28,11 +25,7 @@ export const FOUNDATION_PROMPT = `You are an AI assistant integrated into a deve
 - Keep responses focused and actionable.
 - When presenting findings, organize them with headers and bullet points.`;
 
-/**
- * Composable system prompt from registered sections.
- * Foundation is always at priority 0. Features add sections merged by
- * priority (lower = earlier). Duplicate keys: last-write-wins.
- */
+// Sections merged by priority (lower = earlier). Duplicate keys: last-write-wins.
 export class SystemPromptBuilder {
   private _sections: Map<string, Required<PromptSection>> = new Map();
 
@@ -53,7 +46,6 @@ export class SystemPromptBuilder {
     return this;
   }
 
-  /** The foundation section cannot be removed. */
   removeSection(key: string): boolean {
     if (key === 'foundation') {
       return false;
@@ -77,19 +69,14 @@ export function createSystemPromptBuilder(): SystemPromptBuilder {
   return new SystemPromptBuilder();
 }
 
-/**
- * Converts workspace detection results into a prompt section at priority 10,
- * so the LLM gets project context before any feature-specific instructions.
- */
+// Injects workspace info at priority 10 so the LLM has project context early.
 export function createWorkspaceContextSection(
   info: WorkspaceInfo,
 ): PromptSection {
   const lines: string[] = ['## Workspace Context', ''];
 
-  // Language + structure
   lines.push(`This is a ${info.projectStructure} ${info.language} project.`);
 
-  // Frameworks with versions
   if (info.frameworks.length > 0) {
     const frameworkList = info.frameworks
       .map((f) => {
@@ -100,7 +87,6 @@ export function createWorkspaceContextSection(
     lines.push(`Frameworks: ${frameworkList}.`);
   }
 
-  // Framework details (e.g. Next.js router type)
   for (const [framework, details] of Object.entries(info.frameworkDetails)) {
     const detailParts = Object.entries(details).map(
       ([key, value]) => `${key}: ${value}`,
@@ -110,22 +96,18 @@ export function createWorkspaceContextSection(
     }
   }
 
-  // Package manager
   if (info.packageManager) {
     lines.push(`Package manager: ${info.packageManager}.`);
   }
 
-  // Test frameworks
   if (info.testFrameworks.length > 0) {
     lines.push(`Test frameworks: ${info.testFrameworks.join(', ')}.`);
   }
 
-  // Build tools
   if (info.buildTools.length > 0) {
     lines.push(`Build tools: ${info.buildTools.join(', ')}.`);
   }
 
-  // Notable patterns
   if (info.notablePatterns.length > 0) {
     lines.push('');
     lines.push('Notable patterns:');

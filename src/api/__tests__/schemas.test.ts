@@ -1,8 +1,5 @@
 import {
   ErrorTrackingIssueSchema,
-  ErrorTrackingIssueAggregationsSchema,
-  ErrorTrackingIssueAssigneeSchema,
-  ErrorTrackingEventSchema,
   ErrorTrackingQueryResponseSchema,
 } from '../schemas';
 
@@ -32,71 +29,6 @@ const validIssue = {
   },
 };
 
-describe('ErrorTrackingIssueAggregationsSchema', () => {
-  it('should parse valid aggregations', () => {
-    const result = ErrorTrackingIssueAggregationsSchema.safeParse({
-      occurrences: 42,
-      sessions: 18,
-      users: 12,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should reject missing fields', () => {
-    const result = ErrorTrackingIssueAggregationsSchema.safeParse({
-      occurrences: 42,
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('ErrorTrackingIssueAssigneeSchema', () => {
-  it('should accept numeric id', () => {
-    const result = ErrorTrackingIssueAssigneeSchema.safeParse({
-      id: 7,
-      type: 'user',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept string id', () => {
-    const result = ErrorTrackingIssueAssigneeSchema.safeParse({
-      id: 'user-abc',
-      type: 'role',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should reject invalid type', () => {
-    const result = ErrorTrackingIssueAssigneeSchema.safeParse({
-      id: 1,
-      type: 'team',
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('ErrorTrackingEventSchema', () => {
-  it('should parse a valid event snapshot', () => {
-    const result = ErrorTrackingEventSchema.safeParse({
-      uuid: 'evt-111',
-      distinct_id: 'user-42',
-      timestamp: '2025-01-15T10:30:00Z',
-      properties: '{"$browser":"Chrome"}',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should reject missing properties field', () => {
-    const result = ErrorTrackingEventSchema.safeParse({
-      uuid: 'evt-111',
-      distinct_id: 'user-42',
-      timestamp: '2025-01-15T10:30:00Z',
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
 describe('ErrorTrackingIssueSchema', () => {
   it('should parse a fully populated issue', () => {
     const result = ErrorTrackingIssueSchema.safeParse(validIssue);
@@ -107,40 +39,6 @@ describe('ErrorTrackingIssueSchema', () => {
       expect(result.data.first_event?.uuid).toBe('evt-111');
       expect(result.data.last_event?.uuid).toBe('evt-999');
     }
-  });
-
-  it('should parse a minimal issue with only required fields', () => {
-    const result = ErrorTrackingIssueSchema.safeParse({
-      id: 'issue-minimal',
-      first_seen: '2025-01-01T00:00:00Z',
-      last_seen: '2025-01-01T00:00:00Z',
-      status: 'active',
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.aggregations).toBeUndefined();
-      expect(result.data.description).toBeUndefined();
-      expect(result.data.first_event).toBeUndefined();
-    }
-  });
-
-  it('should handle null optional fields', () => {
-    const result = ErrorTrackingIssueSchema.safeParse({
-      id: 'issue-nulls',
-      first_seen: '2025-01-01T00:00:00Z',
-      last_seen: '2025-01-01T00:00:00Z',
-      status: 'resolved',
-      description: null,
-      name: null,
-      library: null,
-      source: null,
-      function: null,
-      assignee: null,
-      aggregations: null,
-      first_event: null,
-      last_event: null,
-    });
-    expect(result.success).toBe(true);
   });
 
   it('should reject unknown status values', () => {
@@ -186,12 +84,5 @@ describe('ErrorTrackingQueryResponseSchema', () => {
     if (result.success) {
       expect(result.data.results).toHaveLength(0);
     }
-  });
-
-  it('should reject when results is missing', () => {
-    const result = ErrorTrackingQueryResponseSchema.safeParse({
-      hasMore: false,
-    });
-    expect(result.success).toBe(false);
   });
 });

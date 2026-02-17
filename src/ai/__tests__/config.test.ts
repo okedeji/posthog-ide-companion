@@ -4,6 +4,9 @@ import {
   getAIConfig,
   storeApiKey,
   removeApiKey,
+  getActiveAISelection,
+  setActiveAISelection,
+  clearActiveAISelection,
 } from '../config';
 import type { AIConfig } from '../config';
 import type { AISelection } from '../types';
@@ -178,5 +181,95 @@ describe('removeApiKey', () => {
     await removeApiKey(secrets as never, 'anthropic');
 
     expect(secrets.delete).toHaveBeenCalledWith('posthog.ai.anthropicApiKey');
+  });
+});
+
+// --- AI selection persistence ---
+
+/** Creates a minimal mock of ExtensionContext with in-memory state. */
+function createMockContext() {
+  const workspaceState = new Map<string, unknown>();
+  const globalState = new Map<string, unknown>();
+
+  return {
+    workspaceState: {
+      get: <T>(key: string): T | undefined =>
+        workspaceState.get(key) as T | undefined,
+      update: async (key: string, value: unknown): Promise<void> => {
+        if (value === undefined) {
+          workspaceState.delete(key);
+        } else {
+          workspaceState.set(key, value);
+        }
+      },
+    },
+    globalState: {
+      get: <T>(key: string): T | undefined =>
+        globalState.get(key) as T | undefined,
+      update: async (key: string, value: unknown): Promise<void> => {
+        if (value === undefined) {
+          globalState.delete(key);
+        } else {
+          globalState.set(key, value);
+        }
+      },
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+}
+
+describe('AI selection persistence', () => {
+  const selection: AISelection = {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5-20250929',
+  };
+
+  it('returns undefined when nothing is stored', () => {
+    const context = createMockContext();
+    expect(getActiveAISelection(context)).toBeUndefined();
+  });
+
+  it('returns workspace selection when set', async () => {
+    const context = createMockContext();
+    await setActiveAISelection(context, selection);
+
+    expect(getActiveAISelection(context)).toEqual(selection);
+  });
+
+  it('falls back to global default when workspace has no selection', async () => {
+    const context = createMockContext();
+    await setActiveAISelection(context, selection);
+
+    // Simulate a new workspace by clearing only workspace state
+    const freshContext = createMockContext();
+    // Copy global state from original context
+    freshContext.globalState.update('posthog.defaultAISelection', selection);
+
+    expect(getActiveAISelection(freshContext)).toEqual(selection);
+  });
+
+  it('prefers workspace selection over global default', async () => {
+    const context = createMockContext();
+    const globalSelection: AISelection = {
+      provider: 'openai',
+      model: 'gpt-5.2',
+    };
+
+    await context.globalState.update(
+      'posthog.defaultAISelection',
+      globalSelection,
+    );
+    await setActiveAISelection(context, selection);
+
+    expect(getActiveAISelection(context)).toEqual(selection);
+  });
+
+  it('clears workspace selection but preserves global default', async () => {
+    const context = createMockContext();
+    await setActiveAISelection(context, selection);
+    await clearActiveAISelection(context);
+
+    // Falls back to global
+    expect(getActiveAISelection(context)).toEqual(selection);
   });
 });

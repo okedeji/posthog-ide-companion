@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
-import type { PostHogProject } from '../../auth/schemas';
-import type {
-  AISelection,
-  WorkspaceInfo,
-  DetectionStatus,
-} from '../../ai/types';
+import type { PostHogProject } from '../../api/schemas';
+import type { AISelection } from '../../ai/types';
+import type { WorkspaceInfo, DetectionStatus } from '../../workspace/types';
 import type { CloudRegion } from '../../auth/constants';
 import { CLOUD_URLS } from '../../auth/constants';
 
@@ -14,7 +11,6 @@ type StatusItem = {
   icon: string;
 };
 
-/** Native tree view showing project info, AI config, and workspace status. */
 export class StatusProvider implements vscode.TreeDataProvider<StatusItem> {
   static readonly viewType = 'posthog.sidebar';
 

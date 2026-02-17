@@ -1,6 +1,21 @@
 import { z } from 'zod';
 
-// Error Tracking (via POST /api/projects/:id/query/ with ErrorTrackingQuery)
+export const ProjectSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  api_token: z.string(),
+  organization: z.string(),
+  uuid: z.string(),
+});
+
+export const ProjectListSchema = z.object({
+  count: z.number(),
+  results: z.array(ProjectSchema),
+});
+
+export type PostHogProject = z.infer<typeof ProjectSchema>;
+
+// Error tracking (queried via POST /query/ with ErrorTrackingQuery)
 
 export const ErrorTrackingIssueAggregationsSchema = z.object({
   occurrences: z.number(),
@@ -13,16 +28,14 @@ export const ErrorTrackingIssueAssigneeSchema = z.object({
   type: z.enum(['user', 'role']),
 });
 
-/** Snapshot of a single error occurrence (first or most recent). */
 export const ErrorTrackingEventSchema = z.object({
   uuid: z.string(),
   distinct_id: z.string(),
   timestamp: z.string(),
-  // JSON string with event properties (stack trace, browser info, etc.)
-  properties: z.string(),
+  properties: z.string(), // JSON string - stack trace, browser info, etc.
 });
 
-/** Matches ErrorTrackingIssue in posthog/schema.py. */
+// Mirrors ErrorTrackingIssue from posthog/schema.py
 export const ErrorTrackingIssueSchema = z.object({
   id: z.string(),
   first_seen: z.string(),

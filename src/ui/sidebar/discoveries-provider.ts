@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
-import type { Discovery, DiscoveryKind } from '../../discoveries/types';
-import type { DiscoveryStore } from '../../discoveries/store';
+import type {
+  Discovery,
+  DiscoveryKind,
+} from '../../features/discoveries/types';
+import type { DiscoveryStore } from '../../features/discoveries/store';
 
-/** View-model node for a group header in the two-level tree. */
 type DiscoveryGroup = {
   readonly __type: 'group';
   readonly kind: DiscoveryKind;
@@ -10,7 +12,6 @@ type DiscoveryGroup = {
   readonly icon: string;
 };
 
-/** A tree node is either a group header or a leaf discovery. */
 export type DiscoveryTreeNode = DiscoveryGroup | Discovery;
 
 function isGroup(node: DiscoveryTreeNode): node is DiscoveryGroup {
@@ -32,7 +33,6 @@ const SEVERITY_STYLE: Record<string, { icon: string; color: string }> = {
   info: { icon: 'info', color: 'notificationsInfoIcon.foreground' },
 };
 
-/** Two-level tree view provider for the posthog.discoveries view. */
 export class DiscoveriesProvider implements vscode.TreeDataProvider<DiscoveryTreeNode> {
   static readonly viewType = 'posthog.discoveries';
 
@@ -72,19 +72,16 @@ export class DiscoveriesProvider implements vscode.TreeDataProvider<DiscoveryTre
   }
 
   getChildren(element?: DiscoveryTreeNode): DiscoveryTreeNode[] {
-    // Root level → return non-empty group headers
     if (!element) {
       return GROUP_CONFIG.filter(
         (g) => this.store.getByKind(g.kind).length > 0,
       ).map((g) => ({ __type: 'group' as const, ...g }));
     }
 
-    // Group level → return discoveries of that kind
     if (isGroup(element)) {
       return this.store.getByKind(element.kind);
     }
 
-    // Leaf level → no children
     return [];
   }
 

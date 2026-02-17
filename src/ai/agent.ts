@@ -9,26 +9,9 @@ import type {
   AgentEventCallback,
 } from './types';
 
-/** Safety limit to prevent runaway tool loops. */
 const DEFAULT_MAX_ITERATIONS = 10;
 
-/**
- * Runs the standard agentic tool-use loop.
- *
- * Sends messages + tool definitions to the provider. If the provider
- * returns tool calls, executes them, appends results, and sends again.
- * Repeats until the provider returns text or the iteration limit is hit.
- *
- * When the limit is reached, makes one final call without tools to force
- * the LLM to summarize what it has accomplished so far.
- *
- * @param provider - The LLM provider to call.
- * @param messages - Initial conversation messages.
- * @param tools    - Tool definitions available to the LLM.
- * @param executor - Executes tool calls and returns string results.
- * @param options  - Max iterations, model overrides, event callbacks, etc.
- * @returns The final text response with cumulative usage stats.
- */
+// Call provider -> execute tool calls -> repeat until text or iteration limit.
 export async function runAgentLoop(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -164,10 +147,7 @@ export async function runAgentLoop(
   );
 }
 
-/**
- * Makes one final call without tools, forcing the LLM to respond with
- * text summarizing what has been accomplished so far.
- */
+// Final call without tools so the LLM summarizes what it's done so far.
 async function forceTextResponse(
   provider: LLMProvider,
   conversation: LLMMessage[],

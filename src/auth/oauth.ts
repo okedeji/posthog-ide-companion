@@ -12,20 +12,16 @@ import {
 } from './constants';
 import { DcrResponseSchema, OAuthTokenResponseSchema } from './schemas';
 
-/** Result of a successful OAuth flow. */
 export type OAuthResult = {
   tokenResponse: OAuthTokenResponse;
   clientId: string;
 };
 
-/** Internal type for the localhost callback server. */
 type CallbackServer = {
   port: number;
   waitForCode: () => Promise<string>;
   close: () => void;
 };
-
-// PKCE
 
 function generateCodeVerifier(): string {
   return crypto.randomBytes(32).toString('base64url');
@@ -159,10 +155,7 @@ async function exchangeCodeForToken(
   return OAuthTokenResponseSchema.parse(data);
 }
 
-/**
- * Full OAuth PKCE flow: start callback server → DCR registration →
- * browser authorization → code exchange → return tokens.
- */
+// Full PKCE flow: callback server -> DCR -> browser auth -> token exchange
 export async function performOAuthFlow(
   region: CloudRegion,
 ): Promise<OAuthResult> {

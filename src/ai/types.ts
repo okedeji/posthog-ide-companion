@@ -1,5 +1,4 @@
-// LLM types shared across providers, the agent loop, and features.
-// No runtime dependencies. Import types from here, not from SDK packages.
+// LLM types - no runtime deps. Import types from here, not SDK packages.
 
 export type LLMRole = 'user' | 'assistant';
 
@@ -31,9 +30,6 @@ export type TokenUsage = {
   outputTokens: number;
 };
 
-/**
- * Either the model returned text (done) or it wants to call tools (continue).
- */
 export type LLMResponse =
   | { type: 'text'; content: string; usage: TokenUsage }
   | { type: 'tool_calls'; calls: ToolCall[]; usage: TokenUsage };
@@ -42,12 +38,10 @@ export type LLMStreamEvent =
   | { type: 'text'; text: string }
   | { type: 'done'; content: string; usage: TokenUsage };
 
-/** JSON Schema definition for a tool the LLM can call. */
 export type ToolDefinition = {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
-  /** When true, the agent loop requests user consent before executing. */
   requiresConsent?: boolean;
 };
 
@@ -101,16 +95,14 @@ export type AgentEvent =
   | AgentCompleteEvent
   | AgentErrorEvent;
 
-/** Non-blocking, fire-and-forget callback for agent loop events. */
 export type AgentEventCallback = (event: AgentEvent) => void;
 
-/** User's decision when a tool requires consent before execution. */
 export type ConsentDecision =
   | { action: 'approve' }
   | { action: 'reject' }
   | { action: 'respond'; message: string };
 
-/** The agent loop pauses until this resolves. */
+// Agent loop pauses until this resolves.
 export type ConsentCallback = (call: ToolCall) => Promise<ConsentDecision>;
 
 export type AgentLoopOptions = {
@@ -119,9 +111,8 @@ export type AgentLoopOptions = {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
-  /** Callback for agent loop events (tool calls, results, progress). */
   onEvent?: AgentEventCallback;
-  /** If not provided, consent-requiring tools are auto-rejected. */
+  // if not provided, consent-requiring tools are auto-rejected
   onConsent?: ConsentCallback;
 };
 
@@ -146,20 +137,13 @@ export type ModelOption = {
 };
 
 export type SessionOptions = {
-  /** Auto-generated if omitted. */
   id?: string;
   systemPrompt?: string;
   tools?: ToolDefinition[];
   executor?: ToolExecutor;
   agentOptions?: Omit<AgentLoopOptions, 'systemPrompt' | 'onEvent'>;
-  /** Forwarded to the agent loop. */
   onEvent?: AgentEventCallback;
-  /**
-   * Conversation compaction configuration.
-   * When set, the session automatically summarizes older messages
-   * when the conversation exceeds the token threshold.
-   * Disabled by default — set to `{}` for defaults or provide overrides.
-   */
+  // set to {} for defaults or provide overrides. Disabled by default.
   compaction?: CompactionOptions;
 };
 
@@ -170,16 +154,11 @@ export type ToolActivity = {
   durationMs: number;
 };
 
-/**
- * Assistant messages may include `toolActivity` — the tools that were
- * called to produce the response — so the UI can render them inline.
- */
 export type SessionMessage = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  /** Present on assistant messages only. */
-  toolActivity?: ToolActivity[];
+  toolActivity?: ToolActivity[]; // assistant messages only
 };
 
 export type SessionSnapshot = {
@@ -189,68 +168,16 @@ export type SessionSnapshot = {
   lastActiveAt: number;
 };
 
-/**
- * When the total token count exceeds `maxTokens`, older messages are
- * summarized to free context window space.
- */
 export type CompactionOptions = {
-  /**
-   * Maximum total tokens before compaction triggers.
-   * Should be set below the model's context window to leave room for
-   * the system prompt, tools, and the next response.
-   * @default 80_000
-   */
+  // Should be below the model's context window to leave room for system prompt + tools + response.
+  // @default 80_000
   maxTokens?: number;
-  /**
-   * Number of recent message pairs (user + assistant) to preserve verbatim.
-   * @default 4
-   */
+  // Number of recent user+assistant pairs to keep verbatim. @default 4
   preserveRecentPairs?: number;
 };
 
-export type DetectionStatus = 'idle' | 'running' | 'complete' | 'failed';
-
-export type SetupIssue = {
-  /** Machine-readable identifier (e.g. "posthog_not_integrated"). */
-  checkId: string;
-  /** Displayed in the tree view. */
-  title: string;
-  description: string;
-  /** Files, config entries, or patterns that led to this conclusion. */
-  evidence: string[];
-  /** Actionable suggestion for resolving the issue. */
-  remediation: string;
-};
-
-/**
- * Structured workspace information produced by LLM-powered detection.
- * Stored in workspace state and injected into session prompts.
- */
-export type WorkspaceInfo = {
-  language: string;
-  frameworks: string[];
-  frameworkVersions: Record<string, string>;
-  /**
-   * Granular per-framework details the flat `frameworks` array cannot express.
-   * E.g. `{ "next.js": { "router": "app", "version": "14.2.0" } }`.
-   */
-  frameworkDetails: Record<string, Record<string, string>>;
-  packageManager: string | null;
-  testFrameworks: string[];
-  buildTools: string[];
-  projectStructure: 'monorepo' | 'single-package' | 'multi-package' | 'unknown';
-  /** E.g. "uses barrel exports", "co-locates tests with source". */
-  notablePatterns: string[];
-  setupIssues: SetupIssue[];
-  /** ISO 8601 timestamp. */
-  detectedAt: string;
-};
-
 export type PromptSection = {
-  /** Later registrations with the same key overwrite earlier ones. */
-  key: string;
-  /** Joined with double newlines when building the prompt. */
+  key: string; // last-write-wins for duplicate keys
   content: string;
-  /** Lower numbers appear first. @default 100 */
-  priority?: number;
+  priority?: number; // lower = earlier in the prompt. @default 100
 };

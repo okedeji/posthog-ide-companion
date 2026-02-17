@@ -4,20 +4,12 @@ import type { LLMProvider } from './provider';
 import { AnthropicProvider } from './providers/anthropic';
 import { OpenAIProvider } from './providers/openai';
 
-/**
- * SecretStorage keys for each provider.
- * Adding a new provider? Add one entry here.
- */
 const SECRET_KEYS: Record<AIProviderName, string> = {
   anthropic: 'posthog.ai.anthropicApiKey',
   openai: 'posthog.ai.openaiApiKey',
 };
 
-/**
- * API keys retrieved from secure storage.
- * Keys are stored in the OS keychain via VSCode's SecretStorage,
- * not in settings.json.
- */
+// Stored in OS keychain via SecretStorage, not settings.json.
 export type AIConfig = {
   anthropicApiKey: string | undefined;
   openaiApiKey: string | undefined;
@@ -53,7 +45,6 @@ export async function removeApiKey(
   await secrets.delete(SECRET_KEYS[provider]);
 }
 
-/** Returns undefined if the required API key is missing. */
 export function createProvider(
   config: AIConfig,
   selection: AISelection,
@@ -85,4 +76,36 @@ function getKeyForProvider(
     case 'openai':
       return config.openaiApiKey;
   }
+}
+
+// --- AI selection persistence ---
+
+const WORKSPACE_STATE_KEY = 'posthog.aiSelection';
+const DEFAULT_AI_KEY = 'posthog.defaultAISelection';
+
+// Falls back to global default if no workspace-specific selection
+export function getActiveAISelection(
+  context: vscode.ExtensionContext,
+): AISelection | undefined {
+  const workspace =
+    context.workspaceState.get<AISelection>(WORKSPACE_STATE_KEY);
+  if (workspace) {
+    return workspace;
+  }
+  return context.globalState.get<AISelection>(DEFAULT_AI_KEY);
+}
+
+// Also sets global default so new workspaces inherit the choice
+export async function setActiveAISelection(
+  context: vscode.ExtensionContext,
+  selection: AISelection,
+): Promise<void> {
+  await context.workspaceState.update(WORKSPACE_STATE_KEY, selection);
+  await context.globalState.update(DEFAULT_AI_KEY, selection);
+}
+
+export async function clearActiveAISelection(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  await context.workspaceState.update(WORKSPACE_STATE_KEY, undefined);
 }
