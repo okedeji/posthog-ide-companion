@@ -6,12 +6,17 @@ import type { ToolDefinition, ToolCall } from '../types';
 // treats MCP and local tools identically.
 export class McpTool implements Tool {
   readonly definition: ToolDefinition;
+  readonly category = 'posthog' as const;
+  readonly promptSummary: string;
 
   constructor(
     private readonly _client: PostHogMcpClient,
     definition: ToolDefinition,
   ) {
     this.definition = definition;
+    // Use first sentence of the MCP description
+    this.promptSummary =
+      definition.description.split('.')[0] || definition.name;
   }
 
   async execute(call: ToolCall): Promise<string> {

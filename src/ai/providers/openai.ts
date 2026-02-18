@@ -74,6 +74,9 @@ export class OpenAIProvider implements LLMProvider {
       input: toOpenAIInput(messages),
       stream: true,
       ...(options?.systemPrompt && { instructions: options.systemPrompt }),
+      ...(options?.tools?.length && {
+        tools: options.tools.map(toOpenAITool),
+      }),
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,
       }),
@@ -84,11 +87,32 @@ export class OpenAIProvider implements LLMProvider {
 
     let fullText = '';
     let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+    const functionCalls = new Map<
+      string,
+      { id: string; callId: string; name: string; argParts: string[] }
+    >();
 
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') {
         fullText += event.delta;
         yield { type: 'text', text: event.delta };
+      } else if (
+        event.type === 'response.output_item.added' &&
+        event.item.type === 'function_call'
+      ) {
+        const item = event.item;
+        const key = item.id ?? item.call_id;
+        functionCalls.set(key, {
+          id: item.id ?? '',
+          callId: item.call_id,
+          name: item.name,
+          argParts: [],
+        });
+      } else if (event.type === 'response.function_call_arguments.delta') {
+        const fc = functionCalls.get(event.item_id);
+        if (fc) {
+          fc.argParts.push(event.delta);
+        }
       } else if (event.type === 'response.completed') {
         usage = {
           inputTokens: event.response.usage?.input_tokens ?? 0,
@@ -97,7 +121,18 @@ export class OpenAIProvider implements LLMProvider {
       }
     }
 
-    yield { type: 'done', content: fullText, usage };
+    if (functionCalls.size > 0) {
+      const calls: ToolCall[] = Array.from(functionCalls.values()).map(
+        (fc) => ({
+          id: fc.callId || fc.id,
+          name: fc.name,
+          arguments: safeParse(fc.argParts.join('')),
+        }),
+      );
+      yield { type: 'tool_calls', calls, usage };
+    } else {
+      yield { type: 'done', content: fullText, usage };
+    }
   }
 }
 

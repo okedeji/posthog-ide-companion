@@ -21,6 +21,7 @@ const sampleWorkspaceInfo: WorkspaceInfo = {
   buildTools: ['tsc', 'esbuild'],
   projectStructure: 'single-package',
   notablePatterns: [],
+  codebaseSummary: 'A Next.js e-commerce app with PostHog analytics.',
   setupIssues: [],
   detectedAt: new Date().toISOString(),
 };

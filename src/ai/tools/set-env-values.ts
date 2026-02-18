@@ -31,6 +31,8 @@ const DEFINITION: ToolDefinition = {
 
 export class SetEnvValuesTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'action' as const;
+  readonly promptSummary = 'create or update key-value pairs in .env files';
 
   constructor(private readonly _workspaceRoot: string) {}
 

@@ -1,0 +1,252 @@
+import type * as vscode from 'vscode';
+import { Session } from '../ai/session';
+import {
+  createSystemPromptBuilder,
+  createWorkspaceContextSection,
+} from '../ai/prompts';
+import { createToolRegistry } from '../ai/tools/registry';
+import { ReadFileTool } from '../ai/tools/read-file';
+import { ListDirectoryTool } from '../ai/tools/list-directory';
+import { SearchCodeTool } from '../ai/tools/search-code';
+import { CheckEnvKeysTool } from '../ai/tools/check-env-keys';
+import { BashTool } from '../ai/tools/bash';
+import { ProposeEditTool } from '../ai/tools/propose-edit';
+import { createMcpTools } from '../ai/tools/mcp-tool';
+import {
+  CHAT_INSTRUCTIONS,
+  buildErrorDiscoveryContext,
+  buildSetupIssueDiscoveryContext,
+} from './prompts';
+import type { LLMProvider } from '../ai/provider';
+import type {
+  AgentEventCallback,
+  AgentResult,
+  ConsentDecision,
+  SessionMessage,
+  ToolCall,
+} from '../ai/types';
+import type { Tool } from '../ai/tools/tool';
+import type {
+  EditProposal,
+  EditApprovalResult,
+} from '../ai/tools/propose-edit';
+import type { PostHogMcpClient } from '../mcp/client';
+import type { WorkspaceInfo } from '../workspace/types';
+import type { Logger } from '../utils/logger';
+import type {
+  Discovery,
+  ErrorDiscovery,
+  SetupIssueDiscovery,
+} from '../features/discoveries/types';
+
+export type ConsentRequest = {
+  callId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+};
+
+export type ChatControllerOptions = {
+  provider: LLMProvider;
+  workspaceRoot: string;
+  logger: Logger;
+  mcpClient?: PostHogMcpClient;
+  workspaceInfo?: WorkspaceInfo;
+  onEvent: AgentEventCallback;
+  onConsentRequest: (request: ConsentRequest) => void;
+};
+
+export class ChatController implements vscode.Disposable {
+  private readonly _options: ChatControllerOptions;
+  private _session: Session;
+  private _registry: ReturnType<typeof createToolRegistry>;
+  private _pendingConsent = new Map<
+    string,
+    (decision: ConsentDecision) => void
+  >();
+  private _discoveryContext: Discovery | undefined;
+  private _pendingEditFeedback: string | undefined;
+
+  constructor(options: ChatControllerOptions) {
+    this._options = options;
+    this._registry = this._buildRegistry();
+    this._session = this._buildSession();
+  }
+
+  get messages(): readonly SessionMessage[] {
+    return this._session.messages;
+  }
+
+  get isRunning(): boolean {
+    return this._session.isRunning;
+  }
+
+  cancel(): void {
+    this._session.cancel();
+  }
+
+  async send(message: string): Promise<AgentResult> {
+    if (this._discoveryContext) {
+      const context = buildDiscoveryContext(this._discoveryContext);
+      const augmented = context + '\n\n' + message;
+      this._discoveryContext = undefined;
+      return this._session.send(augmented, message);
+    }
+    return this._session.send(message);
+  }
+
+  resolveConsent(callId: string, decision: ConsentDecision): void {
+    const handler = this._pendingConsent.get(callId);
+    if (!handler) {
+      return;
+    }
+    this._pendingConsent.delete(callId);
+    handler(decision);
+  }
+
+  get pendingDiscovery(): Discovery | undefined {
+    return this._discoveryContext;
+  }
+
+  setDiscoveryContext(discovery: Discovery): void {
+    this._discoveryContext = discovery;
+  }
+
+  reset(): void {
+    this._discoveryContext = undefined;
+
+    // Reject pending consents first so the agent loop can finish
+    for (const [id, handler] of this._pendingConsent) {
+      handler({ action: 'reject' });
+      this._pendingConsent.delete(id);
+    }
+
+    // Only reset the session if it's idle. If it's mid-run (e.g. waiting on
+    // consent we just rejected), it will finish on its own.
+    if (!this._session.isRunning) {
+      this._session.reset();
+    }
+  }
+
+  dispose(): void {
+    this.reset();
+    void this._registry.dispose();
+  }
+
+  private _buildRegistry(): ReturnType<typeof createToolRegistry> {
+    const { workspaceRoot, mcpClient } = this._options;
+
+    const tools: Tool[] = [
+      new ReadFileTool(workspaceRoot),
+      new ListDirectoryTool(workspaceRoot),
+      new SearchCodeTool(workspaceRoot),
+      new CheckEnvKeysTool(workspaceRoot),
+      new BashTool(workspaceRoot),
+      new ProposeEditTool(workspaceRoot, this._handleEditApproval),
+    ];
+
+    if (mcpClient) {
+      tools.push(...createMcpTools(mcpClient));
+    }
+
+    return createToolRegistry(tools);
+  }
+
+  private _buildSession(): Session {
+    const prompt = createSystemPromptBuilder();
+
+    if (this._options.workspaceInfo) {
+      prompt.addSection(
+        createWorkspaceContextSection(this._options.workspaceInfo),
+      );
+    }
+
+    // Tools section auto-generated from the registry - no manual updating needed
+    prompt.addSection({
+      key: 'tools',
+      content: this._registry.toolsPromptSection,
+      priority: 5,
+    });
+
+    prompt.addSection({
+      key: 'chat-instructions',
+      content: CHAT_INSTRUCTIONS,
+      priority: 20,
+    });
+
+    return new Session(this._options.provider, {
+      systemPrompt: prompt.build(),
+      tools: this._registry.definitions,
+      executor: this._registry.executor,
+      onEvent: (event) => {
+        // Inject feedback for proposeEdit tool results (not handled by agent consent)
+        if (
+          event.type === 'tool_call_result' &&
+          event.call.name === 'proposeEdit' &&
+          this._pendingEditFeedback
+        ) {
+          event.feedback = this._pendingEditFeedback;
+          this._pendingEditFeedback = undefined;
+        }
+        this._options.onEvent(event);
+      },
+      agentOptions: {
+        enableStreaming: true,
+        onConsent: this._handleAgentConsent,
+      },
+      compaction: {},
+    });
+  }
+
+  // For bash, setEnvValues, etc. (tools with requiresConsent flag)
+  private _handleAgentConsent = async (
+    call: ToolCall,
+  ): Promise<ConsentDecision> => {
+    return new Promise((resolve) => {
+      this._pendingConsent.set(call.id, resolve);
+      this._options.onConsentRequest({
+        callId: call.id,
+        toolName: call.name,
+        args: call.arguments,
+      });
+    });
+  };
+
+  // For proposeEdit (uses its own approval callback)
+  private _handleEditApproval = async (
+    proposal: EditProposal,
+  ): Promise<EditApprovalResult> => {
+    const callId = `edit-${Date.now()}`;
+    return new Promise((resolve) => {
+      this._pendingConsent.set(callId, (decision) => {
+        if (decision.action === 'respond') {
+          this._pendingEditFeedback = decision.message;
+          resolve({ action: 'modify', feedback: decision.message });
+        } else if (decision.action === 'approve') {
+          resolve({ action: 'approve' });
+        } else {
+          resolve({ action: 'reject' });
+        }
+      });
+      this._options.onConsentRequest({
+        callId,
+        toolName: 'proposeEdit',
+        args: {
+          path: proposal.filePath,
+          description: proposal.description,
+          isNewFile: proposal.isNewFile,
+        },
+      });
+    });
+  };
+}
+
+function buildDiscoveryContext(discovery: Discovery): string {
+  switch (discovery.kind) {
+    case 'error':
+      return buildErrorDiscoveryContext(discovery as ErrorDiscovery);
+    case 'setup_issue':
+      return buildSetupIssueDiscoveryContext(discovery as SetupIssueDiscovery);
+    default:
+      return `## Context: ${discovery.title}\n\n${discovery.description}`;
+  }
+}

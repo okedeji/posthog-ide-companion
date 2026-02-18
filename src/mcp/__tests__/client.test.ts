@@ -1,7 +1,7 @@
 import { PostHogMcpClient } from '../client';
 import type { McpConnectionState } from '../client';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 // Mock the MCP SDK
 const mockConnect = jest.fn();
@@ -13,12 +13,12 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
   Client: jest.fn(),
 }));
 
-jest.mock('@modelcontextprotocol/sdk/client/sse.js', () => ({
-  SSEClientTransport: jest.fn(),
+jest.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
+  StreamableHTTPClientTransport: jest.fn(),
 }));
 
 const MockClient = jest.mocked(Client);
-const MockSSETransport = jest.mocked(SSEClientTransport);
+const MockTransport = jest.mocked(StreamableHTTPClientTransport);
 
 const OPTIONS = { apiKey: 'phx_test_key', projectId: 42 };
 
@@ -37,8 +37,8 @@ describe('PostHogMcpClient', () => {
         }) as unknown as Client,
     );
 
-    MockSSETransport.mockImplementation(
-      () => ({}) as unknown as SSEClientTransport,
+    MockTransport.mockImplementation(
+      () => ({}) as unknown as StreamableHTTPClientTransport,
     );
 
     mockConnect.mockResolvedValue(undefined);
@@ -79,12 +79,12 @@ describe('PostHogMcpClient', () => {
       expect(client.state).toBe('connected');
     });
 
-    it('should call project-set-active with the project ID', async () => {
+    it('should call switch-project with the project ID', async () => {
       const client = new PostHogMcpClient(OPTIONS);
       await client.connect();
 
       expect(mockCallTool).toHaveBeenCalledWith({
-        name: 'project-set-active',
+        name: 'switch-project',
         arguments: { projectId: 42 },
       });
     });

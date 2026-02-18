@@ -58,6 +58,8 @@ const DEFINITION: ToolDefinition = {
 
 export class BashTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'action' as const;
+  readonly promptSummary = 'run a shell command in the workspace';
 
   constructor(private readonly _workspaceRoot: string) {}
 

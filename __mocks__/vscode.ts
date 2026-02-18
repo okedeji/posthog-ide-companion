@@ -24,6 +24,33 @@ export const window = {
     command: '',
     tooltip: '',
   })),
+  tabGroups: {
+    all: [],
+    close: jest.fn(async () => undefined),
+  },
+  registerWebviewViewProvider: jest.fn(() => ({ dispose: () => undefined })),
+  registerWebviewPanelSerializer: jest.fn(() => ({ dispose: () => undefined })),
+  createWebviewPanel: jest.fn(
+    (
+      _viewType: string,
+      title: string,
+      _column: number,
+      options?: Record<string, unknown>,
+    ) => ({
+      title,
+      webview: {
+        html: '',
+        options: options ?? {},
+        postMessage: jest.fn(async () => true),
+        onDidReceiveMessage: jest.fn(),
+        cspSource: 'https://test.vscode-cdn.net',
+        asWebviewUri: jest.fn((uri: unknown) => uri),
+      },
+      reveal: jest.fn(),
+      onDidDispose: jest.fn(),
+      dispose: jest.fn(),
+    }),
+  ),
 };
 
 export const workspace = {
@@ -52,6 +79,14 @@ export const commands = {
 export const env = {
   openExternal: jest.fn(async () => true),
 };
+
+export enum ViewColumn {
+  Active = -1,
+  Beside = -2,
+  One = 1,
+  Two = 2,
+  Three = 3,
+}
 
 export enum StatusBarAlignment {
   Left = 1,
@@ -120,6 +155,9 @@ export class Uri {
   }
   static file(path: string): Uri {
     return new Uri(path);
+  }
+  static joinPath(base: Uri, ...segments: string[]): Uri {
+    return new Uri([base.fsPath, ...segments].join('/'));
   }
   private constructor(public readonly fsPath: string) {}
 }

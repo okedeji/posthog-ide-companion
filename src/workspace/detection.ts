@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { runAgentLoop } from '../ai/agent';
+import { createSystemPromptBuilder } from '../ai/prompts';
 import { createToolRegistry } from '../ai/tools/registry';
 import { ReadFileTool } from '../ai/tools/read-file';
 import { ListDirectoryTool } from '../ai/tools/list-directory';
@@ -38,28 +39,32 @@ export const WorkspaceInfoSchema = z.object({
   buildTools: z.array(z.string()),
   projectStructure: PROJECT_STRUCTURE,
   notablePatterns: z.array(z.string()),
+  codebaseSummary: z.string().optional().default(''),
   setupIssues: z.array(SetupIssueSchema).optional().default([]),
 });
 
-const DETECTION_SYSTEM_PROMPT = `You are a workspace analyzer. Your job is to explore a software project, produce structured JSON describing it, and detect PostHog setup issues.
+const DETECTION_INSTRUCTIONS = `## Detection Task
 
-## Part 1: Workspace Analysis
+Explore this project to produce structured JSON describing it and detect PostHog setup issues.
 
-1. **List the root directory** to see what files and folders exist.
-2. **Read config files** to identify the language, framework, and tooling:
+### Part 1: Workspace Analysis
+
+1. List the root directory to see what files and folders exist.
+2. Read config files to identify the language, framework, and tooling:
    - package.json, tsconfig.json, next.config.*, vite.config.*, nuxt.config.*
    - pyproject.toml, setup.py, requirements.txt, Pipfile
    - Cargo.toml, go.mod, build.gradle, pom.xml, Gemfile
    - Any other config files you find in the root
-3. **Check for monorepo markers**: pnpm-workspace.yaml, lerna.json, nx.json, turbo.json, packages/ or apps/ directories.
-4. **Check for test and build config**: jest.config.*, vitest.config.*, pytest.ini, .babelrc, webpack.config.*, esbuild.*, rollup.config.*.
-5. **Identify framework-specific details**: For example, if Next.js is detected, check for app/ directory (App Router) vs pages/ directory (Pages Router). For Django, check for settings modules. For React, check if it uses class components vs hooks.
+3. Check for monorepo markers: pnpm-workspace.yaml, lerna.json, nx.json, turbo.json, packages/ or apps/ directories.
+4. Check for test and build config: jest.config.*, vitest.config.*, pytest.ini, .babelrc, webpack.config.*, esbuild.*, rollup.config.*.
+5. Identify framework-specific details: For example, if Next.js is detected, check for app/ directory (App Router) vs pages/ directory (Pages Router). For Django, check for settings modules. For React, check if it uses class components vs hooks.
+6. **Understand what this project does.** Go beyond config files — browse the main source directories, read key entry points (e.g. pages, routes, main modules), and understand the project's purpose, who it serves, and the core business logic. Write a concise summary for the \`codebaseSummary\` field. This context is critical for the AI assistant that will later help fix issues in this codebase.
 
-## Part 2: PostHog Setup Issue Detection
+### Part 2: PostHog Setup Issue Detection
 
 After analyzing the workspace, check for PostHog integration problems. Add entries to the \`setupIssues\` array ONLY for problems you find. Empty array = everything looks good (or PostHog is not relevant to this project).
 
-### Check 1: PostHog Integration (\`checkId: "posthog_not_integrated"\`)
+#### Check 1: PostHog Integration (\`checkId: "posthog_not_integrated"\`)
 
 Search dependency files for any PostHog SDK package. Known packages by ecosystem:
 
@@ -78,21 +83,21 @@ Search dependency files for any PostHog SDK package. Known packages by ecosystem
 
 Also search source code for direct HTTP API usage: URLs containing \`posthog.com/capture\`, \`i.posthog.com\`, or init patterns like \`posthog.init\`, \`PostHog(\`, \`POSTHOG_API_KEY\`.
 
-If NOTHING is found → add this issue. If PostHog is found via any method (SDK or HTTP), skip this check.
+If NOTHING is found, add this issue. If PostHog is found via any method (SDK or HTTP), skip this check.
 
-### Check 2: Error Tracking (\`checkId: "error_capture_not_configured"\`)
+#### Check 2: Error Tracking (\`checkId: "error_capture_not_configured"\`)
 
-Only run if PostHog integration was found (Check 1 passed). Search the codebase for any evidence that PostHog error/exception capture is configured. This varies by SDK and integration method — look broadly for patterns like:
+Only run if PostHog integration was found (Check 1 passed). Search the codebase for any evidence that PostHog error/exception capture is configured. This varies by SDK and integration method - look broadly for patterns like:
 - Error capture config flags (e.g. \`captureExceptions\`, \`enableExceptionAutocapture\`, \`auto_capture_exceptions\`, \`capture_exceptions\`)
 - Manual exception capture calls (e.g. \`captureException\`, \`capture_exception\`)
 - PostHog error tracking middleware or handler setup
 - Instrumentation files (e.g. \`instrumentation.ts\`) with PostHog error config
 
-Do NOT assume any SDK auto-enables error capture — all SDKs require explicit configuration. If PostHog is integrated but you find no evidence of error capture being configured → add this issue.
+Do NOT assume any SDK auto-enables error capture - all SDKs require explicit configuration. If PostHog is integrated but you find no evidence of error capture being configured, add this issue.
 
-### Check 3: Source Maps (\`checkId: "source_maps_not_configured"\`)
+#### Check 3: Source Maps (\`checkId: "source_maps_not_configured"\`)
 
-Only run if PostHog integration was found AND the project uses JS/TS with a bundler (webpack, vite, esbuild, Next.js, Rollup, etc.). PostHog currently only supports JavaScript source map uploads — this check does not apply to other languages.
+Only run if PostHog integration was found AND the project uses JS/TS with a bundler (webpack, vite, esbuild, Next.js, Rollup, etc.). PostHog currently only supports JavaScript source map uploads - this check does not apply to other languages.
 
 Look for any source map upload tooling:
 - \`@posthog/cli\` or \`posthog-cli\` in package.json
@@ -100,9 +105,9 @@ Look for any source map upload tooling:
 - \`@posthog/nextjs-config\` with \`withPostHogConfig\` in next.config.*
 - Any CI/build script that uploads source maps to PostHog
 
-If the project bundles JS/TS with PostHog but has no source map upload configured → add this issue.
+If the project bundles JS/TS with PostHog but has no source map upload configured, add this issue.
 
-## Output Schema
+### Output Schema
 
 Return ONLY a JSON object matching this exact schema:
 
@@ -119,6 +124,7 @@ Return ONLY a JSON object matching this exact schema:
   "buildTools": ["tsc", "esbuild"],
   "projectStructure": "single-package",
   "notablePatterns": ["uses barrel exports", "monorepo with shared packages"],
+  "codebaseSummary": "An e-commerce platform built with Next.js that sells handmade crafts. Users can browse products, add to cart, and checkout via Stripe. The admin dashboard at /admin manages inventory and orders. PostHog is used for product analytics and A/B testing checkout flows.",
   "setupIssues": [
     {
       "checkId": "source_maps_not_configured",
@@ -131,9 +137,9 @@ Return ONLY a JSON object matching this exact schema:
 }
 \`\`\`
 
-## Rules
+### Rules
 
-- Be precise with version numbers — read them from config files, do not guess.
+- Be precise with version numbers - read them from config files, do not guess.
 - Use lowercase for all values (e.g. "typescript" not "TypeScript").
 - If a field cannot be determined, use an empty array [], empty object {}, or null.
 - projectStructure must be one of: "monorepo", "single-package", "multi-package", "unknown".
@@ -174,13 +180,25 @@ export async function detectWorkspace(
 
   log('info', `Starting workspace detection (maxIterations=${maxIterations})`);
 
+  const prompt = createSystemPromptBuilder();
+  prompt.addSection({
+    key: 'tools',
+    content: registry.toolsPromptSection,
+    priority: 5,
+  });
+  prompt.addSection({
+    key: 'detection-instructions',
+    content: DETECTION_INSTRUCTIONS,
+    priority: 20,
+  });
+
   const result = await runAgentLoop(
     provider,
     [{ role: 'user', content: 'Analyze this workspace and return the JSON.' }],
     registry.definitions,
     registry.executor,
     {
-      systemPrompt: DETECTION_SYSTEM_PROMPT,
+      systemPrompt: prompt.build(),
       maxIterations,
       temperature: 0,
       maxTokens: 4096,

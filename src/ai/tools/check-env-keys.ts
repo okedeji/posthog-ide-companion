@@ -28,6 +28,8 @@ const DEFINITION: ToolDefinition = {
 
 export class CheckEnvKeysTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'workspace' as const;
+  readonly promptSummary = 'check which env var keys exist in .env files';
 
   constructor(private readonly _workspaceRoot: string) {}
 

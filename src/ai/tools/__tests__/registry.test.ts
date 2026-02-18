@@ -10,6 +10,8 @@ function stubTool(name: string, result: string): Tool {
       description: `Stub tool: ${name}`,
       parameters: { type: 'object', properties: {} },
     },
+    category: 'workspace',
+    promptSummary: `stub ${name}`,
     execute: jest.fn(async () => result),
   };
 }

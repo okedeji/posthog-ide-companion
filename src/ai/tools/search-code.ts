@@ -38,6 +38,8 @@ const DEFINITION: ToolDefinition = {
 
 export class SearchCodeTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'workspace' as const;
+  readonly promptSummary = 'search file contents with a regex pattern';
 
   constructor(private readonly _workspaceRoot: string) {}
 

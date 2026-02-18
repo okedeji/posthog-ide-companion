@@ -36,6 +36,7 @@ export type LLMResponse =
 
 export type LLMStreamEvent =
   | { type: 'text'; text: string }
+  | { type: 'tool_calls'; calls: ToolCall[]; usage: TokenUsage }
   | { type: 'done'; content: string; usage: TokenUsage };
 
 export type ToolDefinition = {
@@ -69,6 +70,7 @@ export type AgentToolCallResultEvent = {
   call: ToolCall;
   result: string;
   durationMs: number;
+  feedback?: string;
 };
 
 export type AgentTextResponseEvent = {
@@ -111,9 +113,11 @@ export type AgentLoopOptions = {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
+  enableStreaming?: boolean;
   onEvent?: AgentEventCallback;
   // if not provided, consent-requiring tools are auto-rejected
   onConsent?: ConsentCallback;
+  signal?: AbortSignal;
 };
 
 export type AgentResult = {
@@ -154,11 +158,23 @@ export type ToolActivity = {
   durationMs: number;
 };
 
+export type MessageBlock =
+  | { type: 'text'; content: string }
+  | {
+      type: 'tool';
+      name: string;
+      arguments: Record<string, unknown>;
+      result: string;
+      durationMs: number;
+      feedback?: string;
+    };
+
 export type SessionMessage = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  toolActivity?: ToolActivity[]; // assistant messages only
+  toolActivity?: ToolActivity[]; // assistant messages only (flat list for backward compat)
+  blocks?: MessageBlock[]; // chronological interleaving of text + tool activity
 };
 
 export type SessionSnapshot = {

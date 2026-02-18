@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { ToolDefinition } from '../ai/types';
 
-const MCP_SSE_URL = 'https://mcp.posthog.com/sse';
+const MCP_URL = 'https://mcp.posthog.com/mcp';
 
 export type McpConnectionState =
   | 'disconnected'
@@ -19,7 +19,7 @@ export type McpClientOptions = {
 // Wraps the MCP SDK client with connect/disconnect lifecycle and tool bridging.
 export class PostHogMcpClient implements vscode.Disposable {
   private _client: Client | undefined;
-  private _transport: SSEClientTransport | undefined;
+  private _transport: StreamableHTTPClientTransport | undefined;
   private _state: McpConnectionState = 'disconnected';
   private _tools: ToolDefinition[] = [];
 
@@ -45,7 +45,7 @@ export class PostHogMcpClient implements vscode.Disposable {
     this.setState('connecting');
 
     try {
-      this._transport = new SSEClientTransport(new URL(MCP_SSE_URL), {
+      this._transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
         requestInit: {
           headers: {
             Authorization: `Bearer ${this._options.apiKey}`,
@@ -62,12 +62,11 @@ export class PostHogMcpClient implements vscode.Disposable {
 
       // Scope subsequent calls to the right project
       await this._client.callTool({
-        name: 'project-set-active',
+        name: 'switch-project',
         arguments: { projectId: this._options.projectId },
       });
 
-      const { tools } = await this._client.listTools();
-      this._tools = tools.map(bridgeToolDefinition);
+      this._tools = await this.listAllTools();
 
       this.setState('connected');
     } catch (_err) {
@@ -110,6 +109,25 @@ export class PostHogMcpClient implements vscode.Disposable {
   dispose(): void {
     void this.disconnect();
     this._onDidChangeState.dispose();
+  }
+
+  private async listAllTools(): Promise<ToolDefinition[]> {
+    if (!this._client) {
+      return [];
+    }
+
+    const allTools: ToolDefinition[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = await this._client.listTools(
+        cursor ? { cursor } : undefined,
+      );
+      allTools.push(...result.tools.map(bridgeToolDefinition));
+      cursor = result.nextCursor;
+    } while (cursor);
+
+    return allTools;
   }
 
   private setState(state: McpConnectionState): void {

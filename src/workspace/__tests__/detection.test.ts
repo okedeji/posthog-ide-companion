@@ -37,6 +37,8 @@ const VALID_WORKSPACE_INFO = {
   buildTools: ['tsc', 'esbuild'],
   projectStructure: 'single-package' as const,
   notablePatterns: ['uses barrel exports'],
+  codebaseSummary:
+    'An e-commerce Next.js app selling handmade crafts with Stripe checkout and PostHog analytics.',
   setupIssues: [],
 };
 
@@ -536,6 +538,7 @@ describe('createWorkspaceContextSection', () => {
       buildTools: [],
       projectStructure: 'unknown',
       notablePatterns: [],
+      codebaseSummary: '',
       setupIssues: [],
       detectedAt: new Date().toISOString(),
     };

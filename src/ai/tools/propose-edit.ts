@@ -13,8 +13,15 @@ export type EditProposal = {
   tempFile: string;
 };
 
-// Pauses until the user approves/rejects in the webview. Returns true if accepted.
-export type EditApprovalCallback = (proposal: EditProposal) => Promise<boolean>;
+export type EditApprovalResult =
+  | { action: 'approve' }
+  | { action: 'reject' }
+  | { action: 'modify'; feedback: string };
+
+// Pauses until the user approves, rejects, or requests a modification.
+export type EditApprovalCallback = (
+  proposal: EditProposal,
+) => Promise<EditApprovalResult>;
 
 const DEFINITION: ToolDefinition = {
   name: 'proposeEdit',
@@ -55,6 +62,8 @@ The oldContent must match exactly one location in the file. Include enough surro
 
 export class ProposeEditTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'action' as const;
+  readonly promptSummary = 'suggest a code edit shown as a diff for review';
   private readonly _tempFiles: string[] = [];
 
   constructor(
@@ -103,34 +112,52 @@ export class ProposeEditTool implements Tool {
       tempFile = await writeTempFile(filePath, proposedContent);
       this._tempFiles.push(tempFile);
 
-      const originalUri = vscode.Uri.file(resolved);
       const tempUri = vscode.Uri.file(tempFile);
-      const diffTitle = `${path.basename(filePath)}: ${description}`;
+      const diffTitle = `[PostHog Companion] ${path.basename(filePath)}`;
 
-      await vscode.commands.executeCommand(
-        'vscode.diff',
-        originalUri,
-        tempUri,
-        diffTitle,
-      );
+      if (isNewFile) {
+        // For new files, diff against an empty untitled document
+        const emptyFile = await writeTempFile(filePath + '.empty', '');
+        this._tempFiles.push(emptyFile);
+        await vscode.commands.executeCommand(
+          'vscode.diff',
+          vscode.Uri.file(emptyFile),
+          tempUri,
+          diffTitle,
+        );
+      } else {
+        await vscode.commands.executeCommand(
+          'vscode.diff',
+          vscode.Uri.file(resolved),
+          tempUri,
+          diffTitle,
+        );
+      }
     } catch (err) {
       return `Error opening diff: ${err instanceof Error ? err.message : 'unknown error'}`;
     }
 
-    const accepted = await this._waitForApproval({
+    const result = await this._waitForApproval({
       filePath,
       description,
       isNewFile,
       tempFile,
     });
 
-    if (!accepted) {
+    if (result.action === 'reject') {
+      closeDiffTab(tempFile);
       return `Edit rejected by user for ${filePath}.`;
+    }
+
+    if (result.action === 'modify') {
+      closeDiffTab(tempFile);
+      return `User requested changes to the proposed edit for ${filePath}: ${result.feedback}`;
     }
 
     try {
       await fs.mkdir(path.dirname(resolved), { recursive: true });
       await fs.writeFile(resolved, proposedContent, 'utf-8');
+      closeDiffTab(tempFile);
       return `Edit applied to ${filePath}: ${description}`;
     } catch (err) {
       return `Error writing file: ${err instanceof Error ? err.message : 'unknown error'}`;
@@ -209,4 +236,22 @@ async function writeTempFile(
   const tempFile = path.join(os.tmpdir(), `posthog-edit-${Date.now()}${ext}`);
   await fs.writeFile(tempFile, content, 'utf-8');
   return tempFile;
+}
+
+function closeDiffTab(tempFilePath: string): void {
+  const tempUri = vscode.Uri.file(tempFilePath);
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      const input = tab.input;
+      if (
+        input &&
+        typeof input === 'object' &&
+        'modified' in input &&
+        (input as { modified: vscode.Uri }).modified.fsPath === tempUri.fsPath
+      ) {
+        void vscode.window.tabGroups.close(tab);
+        return;
+      }
+    }
+  }
 }

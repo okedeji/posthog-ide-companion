@@ -20,8 +20,8 @@ describe('ProposeEditTool', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pe-test-'));
-    approveAll = jest.fn(async () => true);
-    rejectAll = jest.fn(async () => false);
+    approveAll = jest.fn(async () => ({ action: 'approve' as const }));
+    rejectAll = jest.fn(async () => ({ action: 'reject' as const }));
   });
 
   afterEach(async () => {
@@ -82,7 +82,7 @@ describe('ProposeEditTool', () => {
         'vscode.diff',
         expect.anything(),
         expect.anything(),
-        'app.ts: Update x value',
+        '[PostHog Companion] app.ts',
       );
 
       const updated = await fs.readFile(filePath, 'utf-8');

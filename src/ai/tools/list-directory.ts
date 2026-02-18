@@ -22,6 +22,8 @@ const DEFINITION: ToolDefinition = {
 
 export class ListDirectoryTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'workspace' as const;
+  readonly promptSummary = 'list files and folders in a directory';
 
   constructor(private readonly _workspaceRoot: string) {}
 

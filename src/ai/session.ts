@@ -16,6 +16,7 @@ import type {
   SessionSnapshot,
   AgentResult,
   ToolActivity,
+  MessageBlock,
 } from './types';
 
 // Multi-turn conversation. Keeps two histories: _messages for the UI (with
@@ -36,6 +37,7 @@ export class Session {
   private readonly _createdAt: number;
   private _lastActiveAt: number;
   private _isRunning = false;
+  private _abortController: AbortController | undefined;
 
   constructor(provider: LLMProvider, options?: SessionOptions) {
     this.id = options?.id ?? randomUUID();
@@ -59,20 +61,26 @@ export class Session {
     return this._isRunning;
   }
 
-  async send(message: string): Promise<AgentResult> {
+  cancel(): void {
+    this._abortController?.abort();
+  }
+
+  async send(message: string, displayContent?: string): Promise<AgentResult> {
     if (this._isRunning) {
       throw new Error('Session is already processing a message');
     }
 
     this._isRunning = true;
     this._lastActiveAt = Date.now();
+    this._abortController = new AbortController();
 
     const toolActivity: ToolActivity[] = [];
+    const blockCollector = createBlockCollector();
 
     try {
       this._messages.push({
         role: 'user',
-        content: message,
+        content: displayContent ?? message,
         timestamp: Date.now(),
       });
       this._llmMessages.push({ role: 'user', content: message });
@@ -95,19 +103,23 @@ export class Session {
         {
           ...this._agentOptions,
           systemPrompt: this._systemPrompt,
+          signal: this._abortController.signal,
           onEvent: (event: AgentEvent) => {
             collectToolActivity(event, toolActivity);
+            blockCollector.handle(event);
             this._onEvent?.(event);
           },
         },
       );
 
       this._llmMessages.push({ role: 'assistant', content: result.content });
+      const blocks = blockCollector.blocks;
       this._messages.push({
         role: 'assistant',
         content: result.content,
         timestamp: Date.now(),
         toolActivity: toolActivity.length > 0 ? toolActivity : undefined,
+        blocks: blocks.length > 0 ? blocks : undefined,
       });
 
       return result;
@@ -147,6 +159,45 @@ function collectToolActivity(
       durationMs: event.durationMs,
     });
   }
+}
+
+function createBlockCollector(): {
+  handle: (event: AgentEvent) => void;
+  blocks: MessageBlock[];
+} {
+  const blocks: MessageBlock[] = [];
+  let activeTextIdx = -1;
+
+  return {
+    handle(event: AgentEvent) {
+      if (event.type === 'iteration_start') {
+        activeTextIdx = -1;
+      } else if (event.type === 'text_response') {
+        if (activeTextIdx >= 0) {
+          (blocks[activeTextIdx] as { type: 'text'; content: string }).content =
+            event.content;
+        } else {
+          activeTextIdx = blocks.length;
+          blocks.push({ type: 'text', content: event.content });
+        }
+      } else if (event.type === 'tool_call_start') {
+        activeTextIdx = -1;
+      } else if (event.type === 'tool_call_result') {
+        const block: MessageBlock = {
+          type: 'tool',
+          name: event.call.name,
+          arguments: event.call.arguments,
+          result: event.result,
+          durationMs: event.durationMs,
+        };
+        if (event.feedback) {
+          block.feedback = event.feedback;
+        }
+        blocks.push(block);
+      }
+    },
+    blocks,
+  };
 }
 
 async function defaultExecutor(): Promise<string> {

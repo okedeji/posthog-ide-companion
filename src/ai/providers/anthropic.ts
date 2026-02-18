@@ -61,15 +61,39 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
       messages: toAnthropicMessages(messages),
       ...(options?.systemPrompt && { system: options.systemPrompt }),
+      ...(options?.tools?.length && {
+        tools: options.tools.map(toAnthropicTool),
+      }),
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,
       }),
     });
 
     let fullText = '';
+    const toolCalls = new Map<
+      number,
+      { id: string; name: string; jsonParts: string[] }
+    >();
 
     for await (const event of stream) {
       if (
+        event.type === 'content_block_start' &&
+        event.content_block.type === 'tool_use'
+      ) {
+        toolCalls.set(event.index, {
+          id: event.content_block.id,
+          name: event.content_block.name,
+          jsonParts: [],
+        });
+      } else if (
+        event.type === 'content_block_delta' &&
+        event.delta.type === 'input_json_delta'
+      ) {
+        const tc = toolCalls.get(event.index);
+        if (tc) {
+          tc.jsonParts.push(event.delta.partial_json);
+        }
+      } else if (
         event.type === 'content_block_delta' &&
         event.delta.type === 'text_delta'
       ) {
@@ -79,14 +103,21 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     const finalMessage = await stream.finalMessage();
-    yield {
-      type: 'done',
-      content: fullText,
-      usage: {
-        inputTokens: finalMessage.usage.input_tokens,
-        outputTokens: finalMessage.usage.output_tokens,
-      },
+    const usage: TokenUsage = {
+      inputTokens: finalMessage.usage.input_tokens,
+      outputTokens: finalMessage.usage.output_tokens,
     };
+
+    if (toolCalls.size > 0) {
+      const calls: ToolCall[] = Array.from(toolCalls.values()).map((tc) => ({
+        id: tc.id,
+        name: tc.name,
+        arguments: safeParseJson(tc.jsonParts.join('')),
+      }));
+      yield { type: 'tool_calls', calls, usage };
+    } else {
+      yield { type: 'done', content: fullText, usage };
+    }
   }
 }
 
@@ -151,4 +182,12 @@ function extractToolCalls(response: Anthropic.Message): ToolCall[] {
       name: block.name,
       arguments: block.input as Record<string, unknown>,
     }));
+}
+
+function safeParseJson(json: string): Record<string, unknown> {
+  try {
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return { _raw: json };
+  }
 }

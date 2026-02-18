@@ -19,6 +19,9 @@ export type WorkspaceInfo = {
   buildTools: string[];
   projectStructure: 'monorepo' | 'single-package' | 'multi-package' | 'unknown';
   notablePatterns: string[];
+  // High-level understanding of what this codebase does, who it serves,
+  // and key business logic — gives the chat LLM immediate context.
+  codebaseSummary: string;
   setupIssues: SetupIssue[];
   detectedAt: string; // ISO 8601
 };

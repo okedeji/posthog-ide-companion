@@ -33,14 +33,21 @@ import { DiscoveriesProvider } from './ui/sidebar/discoveries-provider';
 import { createErrorPoller } from './features/discoveries/pollers/error-poller';
 import { workspaceInfoToSetupDiscoveries } from './features/discoveries/scanners/setup-issues';
 import type { Poller } from './features/discoveries/poller';
+import type { LLMProvider } from './ai/provider';
+import { ChatViewProvider } from './ui/chat/chat-provider';
+import { ChatHistory } from './chat/history';
+import { PostHogMcpClient } from './mcp/client';
+import type { Discovery } from './features/discoveries/types';
 
 export class ExtensionHost implements vscode.Disposable {
   private readonly authProvider: PostHogAuthProvider;
   private readonly sidebarProvider: StatusProvider;
   private readonly discoveryStore: DiscoveryStore;
+  private readonly chatProvider: ChatViewProvider;
   private readonly statusBar: vscode.StatusBarItem;
 
   private activeErrorPoller: Poller<void> | undefined;
+  private mcpClient: PostHogMcpClient | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -72,6 +79,27 @@ export class ExtensionHost implements vscode.Disposable {
       }),
     );
     context.subscriptions.push(this.discoveryStore);
+
+    this.chatProvider = new ChatViewProvider({
+      extensionUri: context.extensionUri,
+      logger: this.logger,
+      getProvider: () => this._resolveAIProvider(),
+      getWorkspaceRoot: () =>
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      getMcpClient: () => this.mcpClient,
+      getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
+      chatHistory: new ChatHistory(context.workspaceState),
+    });
+    context.subscriptions.push(this.chatProvider);
+
+    // Restore the chat panel if it was open before VSCode restarted
+    context.subscriptions.push(
+      vscode.window.registerWebviewPanelSerializer(ChatViewProvider.viewType, {
+        deserializeWebviewPanel: async (panel: vscode.WebviewPanel) => {
+          this.chatProvider.revive(panel);
+        },
+      }),
+    );
 
     this.statusBar = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
@@ -109,6 +137,15 @@ export class ExtensionHost implements vscode.Disposable {
           void this.activeErrorPoller.pollNow();
         }
       }),
+      vscode.commands.registerCommand('posthog.openChat', () => {
+        this.chatProvider.open();
+      }),
+      vscode.commands.registerCommand(
+        'posthog.investigateDiscovery',
+        (discovery: Discovery) => {
+          this.chatProvider.loadDiscoveryContext(discovery);
+        },
+      ),
     );
   }
 
@@ -143,6 +180,53 @@ export class ExtensionHost implements vscode.Disposable {
 
   dispose(): void {
     this.stopDiscoveryPolling();
+    this.disconnectMcp();
+  }
+
+  private _resolveAIProvider(): LLMProvider | undefined {
+    const aiSelection = getActiveAISelection(this.context);
+    if (!aiSelection) {
+      return undefined;
+    }
+
+    // AIConfig is async, but we need a sync getter for the ChatViewProvider.
+    // The provider is only created on first chat message, so the secrets
+    // are already loaded by then. We cache the result to avoid repeat lookups.
+    if (this._cachedProvider) {
+      return this._cachedProvider;
+    }
+    return undefined;
+  }
+
+  private _cachedProvider: LLMProvider | undefined;
+
+  private async _refreshCachedProvider(): Promise<void> {
+    const aiSelection = getActiveAISelection(this.context);
+    if (!aiSelection) {
+      this._cachedProvider = undefined;
+      return;
+    }
+    const aiConfig = await getAIConfig(this.context.secrets);
+    this._cachedProvider = createProvider(aiConfig, aiSelection);
+  }
+
+  private async connectMcp(apiKey: string, projectId: number): Promise<void> {
+    this.disconnectMcp();
+    try {
+      this.mcpClient = new PostHogMcpClient({ apiKey, projectId });
+      await this.mcpClient.connect();
+      this.logger.info(`MCP connected (${this.mcpClient.tools.length} tools)`);
+    } catch (err) {
+      this.logger.error('MCP connection failed (non-fatal)', err);
+      this.mcpClient = undefined;
+    }
+  }
+
+  private disconnectMcp(): void {
+    if (this.mcpClient) {
+      this.mcpClient.dispose();
+      this.mcpClient = undefined;
+    }
   }
 
   private async signIn(): Promise<void> {
@@ -174,6 +258,8 @@ export class ExtensionHost implements vscode.Disposable {
       await clearActiveProject(this.context);
 
       this.stopDiscoveryPolling();
+      this.disconnectMcp();
+      this._cachedProvider = undefined;
       this.discoveryStore.clear();
 
       this.sidebarProvider.setProject(undefined);
@@ -262,12 +348,14 @@ export class ExtensionHost implements vscode.Disposable {
         const label = getModelLabel(selection);
         this.sidebarProvider.setAISelection(selection, label);
         this.logger.info(`AI configured: ${selection.provider} (${label})`);
+        await this._refreshCachedProvider();
 
         if (!getStoredWorkspaceInfo(this.context)) {
           void this.triggerWorkspaceDetection();
         }
       } else {
         this.sidebarProvider.setAISelection(undefined);
+        this._cachedProvider = undefined;
       }
     } catch (err) {
       this.logger.error('AI configuration failed', err);
@@ -399,6 +487,13 @@ export class ExtensionHost implements vscode.Disposable {
     );
     this.activeErrorPoller.start();
     this.logger.info('Discovery polling started');
+
+    // Connect MCP in background (non-fatal if it fails)
+    void resolveToken().then((token) => {
+      if (token) {
+        void this.connectMcp(token, projectId);
+      }
+    });
   }
 
   private stopDiscoveryPolling(): void {
@@ -425,6 +520,7 @@ export class ExtensionHost implements vscode.Disposable {
     }
 
     this.logger.info(`Restored AI: ${aiSelection.provider} (${label})`);
+    await this._refreshCachedProvider();
 
     const workspaceInfo = getStoredWorkspaceInfo(this.context);
     if (!workspaceInfo) {
@@ -467,9 +563,9 @@ export class ExtensionHost implements vscode.Disposable {
         this.statusBar.tooltip = 'Click to select a project';
         break;
       case 'project':
-        this.statusBar.text = `$(pulse) PostHog: ${projectName ?? 'Unknown'}`;
-        this.statusBar.command = 'posthog.selectProject';
-        this.statusBar.tooltip = 'Click to switch project';
+        this.statusBar.text = '$(comment-discussion) Ask PostHog';
+        this.statusBar.command = 'posthog.openChat';
+        this.statusBar.tooltip = `Ask about errors, analytics, and flags in ${projectName ?? 'your project'}`;
         break;
     }
   }

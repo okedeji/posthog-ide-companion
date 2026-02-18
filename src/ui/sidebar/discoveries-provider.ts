@@ -68,6 +68,11 @@ export class DiscoveriesProvider implements vscode.TreeDataProvider<DiscoveryTre
       : new vscode.ThemeIcon('circle-outline');
     item.collapsibleState = vscode.TreeItemCollapsibleState.None;
     item.contextValue = node.kind;
+    item.command = {
+      command: 'posthog.investigateDiscovery',
+      title: 'Investigate',
+      arguments: [node],
+    };
     return item;
   }
 

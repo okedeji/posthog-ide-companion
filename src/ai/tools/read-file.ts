@@ -27,6 +27,8 @@ const DEFINITION: ToolDefinition = {
 
 export class ReadFileTool implements Tool {
   readonly definition = DEFINITION;
+  readonly category = 'workspace' as const;
+  readonly promptSummary = 'read file contents by path';
 
   constructor(private readonly _workspaceRoot: string) {}
 

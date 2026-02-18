@@ -3,6 +3,7 @@ import type { LLMProvider } from '../provider';
 import type {
   LLMMessage,
   LLMResponse,
+  LLMStreamEvent,
   LLMGenerateOptions,
   ToolDefinition,
   ToolCall,
@@ -675,5 +676,152 @@ describe('consent', () => {
 
     // readFile does not have requiresConsent, so onConsent should not be called
     expect(consentCalls).toHaveLength(0);
+  });
+});
+
+// --- Streaming mode ---
+
+function createStreamingProvider(
+  streamResponses: LLMStreamEvent[][],
+): LLMProvider {
+  let streamIndex = 0;
+
+  return {
+    name: 'mock-streaming',
+    generate: async (): Promise<LLMResponse> => {
+      throw new Error('Should not call generate in streaming mode');
+    },
+    async *stream(): AsyncIterable<LLMStreamEvent> {
+      const events = streamResponses[streamIndex];
+      if (!events) {
+        throw new Error('Mock provider ran out of stream responses');
+      }
+      streamIndex++;
+      for (const event of events) {
+        yield event;
+      }
+    },
+  };
+}
+
+describe('streaming mode', () => {
+  it('should emit incremental text_response events with accumulated content', async () => {
+    const events: AgentEvent[] = [];
+    const provider = createStreamingProvider([
+      [
+        { type: 'text', text: 'Hello' },
+        { type: 'text', text: ' world' },
+        { type: 'text', text: '!' },
+        { type: 'done', content: 'Hello world!', usage: USAGE },
+      ],
+    ]);
+
+    const result = await runAgentLoop(
+      provider,
+      [{ role: 'user', content: 'Hi' }],
+      SAMPLE_TOOLS,
+      mockExecutor,
+      { enableStreaming: true, onEvent: (e) => events.push(e) },
+    );
+
+    expect(result.content).toBe('Hello world!');
+
+    // Should have partial text_response events with isFinal: false
+    const partials = events.filter(
+      (e) => e.type === 'text_response' && !e.isFinal,
+    );
+    expect(partials).toHaveLength(3);
+    if (partials[0]?.type === 'text_response') {
+      expect(partials[0].content).toBe('Hello');
+    }
+    if (partials[1]?.type === 'text_response') {
+      expect(partials[1].content).toBe('Hello world');
+    }
+    if (partials[2]?.type === 'text_response') {
+      expect(partials[2].content).toBe('Hello world!');
+    }
+
+    // Should also have final text_response with isFinal: true
+    const final = events.find((e) => e.type === 'text_response' && e.isFinal);
+    expect(final).toBeDefined();
+  });
+
+  it('should handle tool calls from stream and continue the loop', async () => {
+    const provider = createStreamingProvider([
+      // First iteration: tool call
+      [
+        {
+          type: 'tool_calls',
+          calls: [{ id: 'tc1', name: 'readFile', arguments: { path: 'a.ts' } }],
+          usage: USAGE,
+        },
+      ],
+      // Second iteration: text response
+      [
+        { type: 'text', text: 'Found it' },
+        { type: 'done', content: 'Found it', usage: USAGE },
+      ],
+    ]);
+
+    const result = await runAgentLoop(
+      provider,
+      [{ role: 'user', content: 'Read a.ts' }],
+      SAMPLE_TOOLS,
+      mockExecutor,
+      { enableStreaming: true },
+    );
+
+    expect(result.content).toBe('Found it');
+    expect(result.iterations).toBe(2);
+  });
+
+  it('should accumulate usage across streaming iterations', async () => {
+    const provider = createStreamingProvider([
+      [
+        {
+          type: 'tool_calls',
+          calls: [{ id: 'tc1', name: 'readFile', arguments: { path: 'a.ts' } }],
+          usage: { inputTokens: 100, outputTokens: 50 },
+        },
+      ],
+      [
+        {
+          type: 'done',
+          content: 'Done',
+          usage: { inputTokens: 200, outputTokens: 100 },
+        },
+      ],
+    ]);
+
+    const result = await runAgentLoop(
+      provider,
+      [{ role: 'user', content: 'Go' }],
+      SAMPLE_TOOLS,
+      mockExecutor,
+      { enableStreaming: true },
+    );
+
+    expect(result.totalUsage).toEqual({
+      inputTokens: 300,
+      outputTokens: 150,
+    });
+  });
+
+  it('should not call generate() when streaming is enabled', async () => {
+    const provider = createStreamingProvider([
+      [{ type: 'done', content: 'ok', usage: USAGE }],
+    ]);
+
+    const generateSpy = jest.spyOn(provider, 'generate');
+
+    await runAgentLoop(
+      provider,
+      [{ role: 'user', content: 'Hi' }],
+      SAMPLE_TOOLS,
+      mockExecutor,
+      { enableStreaming: true },
+    );
+
+    expect(generateSpy).not.toHaveBeenCalled();
   });
 });

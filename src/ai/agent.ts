@@ -1,6 +1,8 @@
 import type { LLMProvider } from './provider';
 import type {
   LLMMessage,
+  LLMResponse,
+  LLMGenerateOptions,
   ToolDefinition,
   ToolExecutor,
   AgentLoopOptions,
@@ -26,20 +28,41 @@ export async function runAgentLoop(
 
   const emit: AgentEventCallback = options?.onEvent ?? noop;
 
+  const signal = options?.signal;
+
   while (iterations < maxIterations) {
+    if (signal?.aborted) {
+      break;
+    }
+
     iterations++;
     emit({ type: 'iteration_start', iteration: iterations, maxIterations });
 
-    let response;
+    const generateOptions: LLMGenerateOptions = {
+      model: options?.model,
+      maxTokens: options?.maxTokens,
+      temperature: options?.temperature,
+      systemPrompt: options?.systemPrompt,
+      tools,
+    };
+
+    let response: LLMResponse;
     try {
-      response = await provider.generate(conversation, {
-        model: options?.model,
-        maxTokens: options?.maxTokens,
-        temperature: options?.temperature,
-        systemPrompt: options?.systemPrompt,
-        tools,
-      });
+      if (options?.enableStreaming) {
+        response = await consumeStream(
+          provider,
+          conversation,
+          generateOptions,
+          emit,
+          signal,
+        );
+      } else {
+        response = await provider.generate(conversation, generateOptions);
+      }
     } catch (err) {
+      if (signal?.aborted) {
+        break;
+      }
       emit({ type: 'error', error: errorMessage(err) });
       throw err;
     }
@@ -48,14 +71,17 @@ export async function runAgentLoop(
     totalUsage.outputTokens += response.usage.outputTokens;
 
     if (response.type === 'text') {
-      emit({ type: 'text_response', content: response.content, isFinal: true });
-      const result: AgentResult = {
-        content: response.content,
-        totalUsage,
-        iterations,
-      };
+      const content = signal?.aborted
+        ? response.content + '\n\n*interrupted.*'
+        : response.content;
+      emit({ type: 'text_response', content, isFinal: true });
+      const result: AgentResult = { content, totalUsage, iterations };
       emit({ type: 'complete', result });
       return result;
+    }
+
+    if (signal?.aborted) {
+      break;
     }
 
     conversation.push({
@@ -68,7 +94,10 @@ export async function runAgentLoop(
       })),
     });
 
-    // TODO: run sequentially once we add write tools (file edits, env mutations)
+    if (signal?.aborted) {
+      break;
+    }
+
     const results = await Promise.all(
       response.calls.map(async (call) => {
         emit({ type: 'tool_call_start', call });
@@ -108,6 +137,7 @@ export async function runAgentLoop(
               call,
               result: content,
               durationMs,
+              feedback: decision.message,
             });
             return {
               type: 'tool_result' as const,
@@ -136,6 +166,21 @@ export async function runAgentLoop(
     conversation.push({ role: 'user', content: results });
   }
 
+  if (signal?.aborted) {
+    emit({
+      type: 'text_response',
+      content: '*Request cancelled.*',
+      isFinal: true,
+    });
+    const result: AgentResult = {
+      content: 'Request cancelled.',
+      totalUsage,
+      iterations,
+    };
+    emit({ type: 'complete', result });
+    return result;
+  }
+
   // Hit the iteration limit, force a text summary
   return forceTextResponse(
     provider,
@@ -145,6 +190,40 @@ export async function runAgentLoop(
     emit,
     options,
   );
+}
+
+// Consume a stream, emitting text_response events for text deltas.
+// Returns an LLMResponse-compatible result.
+async function consumeStream(
+  provider: LLMProvider,
+  messages: LLMMessage[],
+  options: LLMGenerateOptions,
+  emit: AgentEventCallback,
+  signal?: AbortSignal,
+): Promise<LLMResponse> {
+  let accumulated = '';
+
+  for await (const event of provider.stream(messages, options)) {
+    if (signal?.aborted) {
+      break;
+    }
+
+    if (event.type === 'text') {
+      accumulated += event.text;
+      emit({ type: 'text_response', content: accumulated, isFinal: false });
+    } else if (event.type === 'tool_calls') {
+      return { type: 'tool_calls', calls: event.calls, usage: event.usage };
+    } else if (event.type === 'done') {
+      return { type: 'text', content: event.content, usage: event.usage };
+    }
+  }
+
+  // Fallback: stream ended without done/tool_calls (or aborted mid-stream)
+  return {
+    type: 'text',
+    content: accumulated,
+    usage: { inputTokens: 0, outputTokens: 0 },
+  };
 }
 
 // Final call without tools so the LLM summarizes what it's done so far.
@@ -164,14 +243,26 @@ async function forceTextResponse(
       'based on the tool results above.',
   });
 
-  let response;
+  const generateOptions: LLMGenerateOptions = {
+    model: options?.model,
+    maxTokens: options?.maxTokens,
+    temperature: options?.temperature,
+    systemPrompt: options?.systemPrompt,
+  };
+
+  let response: LLMResponse;
   try {
-    response = await provider.generate(conversation, {
-      model: options?.model,
-      maxTokens: options?.maxTokens,
-      temperature: options?.temperature,
-      systemPrompt: options?.systemPrompt,
-    });
+    if (options?.enableStreaming) {
+      response = await consumeStream(
+        provider,
+        conversation,
+        generateOptions,
+        emit,
+        options?.signal,
+      );
+    } else {
+      response = await provider.generate(conversation, generateOptions);
+    }
   } catch (err) {
     emit({ type: 'error', error: errorMessage(err) });
     throw err;
