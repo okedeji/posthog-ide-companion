@@ -78,6 +78,35 @@ export type ErrorTrackingQueryResponse = z.infer<
   typeof ErrorTrackingQueryResponseSchema
 >;
 
+// Feature flags — POST/PATCH /api/projects/{id}/feature_flags/
+
+export const FeatureFlagGroupSchema = z.object({
+  rollout_percentage: z.number().optional(),
+  properties: z.array(z.unknown()).optional(),
+  variant: z.string().nullable().optional(),
+});
+
+export const FeatureFlagFiltersSchema = z.object({
+  groups: z.array(FeatureFlagGroupSchema).optional(),
+  multivariate: z.unknown().nullable().optional(),
+  payloads: z.record(z.string()).optional(),
+});
+
+export const FeatureFlagSchema = z.object({
+  id: z.number(),
+  key: z.string(),
+  name: z.string(),
+  active: z.boolean(),
+  deleted: z.boolean().optional(),
+  filters: FeatureFlagFiltersSchema.optional(),
+  tags: z.array(z.string()).optional(),
+  created_at: z.string().optional(),
+});
+
+export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
+export type FeatureFlagFilters = z.infer<typeof FeatureFlagFiltersSchema>;
+export type FeatureFlagGroup = z.infer<typeof FeatureFlagGroupSchema>;
+
 // GET /api/users/@me/
 export const UserInfoSchema = z.object({
   distinct_id: z.string().optional(),

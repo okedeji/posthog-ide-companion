@@ -73,13 +73,21 @@ const BACKOFF_MAX_MS = 10_000;
 
 export class PostHogApiClient {
   private readonly baseUrl: string;
+  private readonly cloudUrl: string;
+  private readonly projectId: number;
 
   constructor(
     private readonly resolveToken: TokenResolver,
     region: CloudRegion,
     projectId: number,
   ) {
-    this.baseUrl = `${CLOUD_URLS[region]}/api/projects/${projectId}`;
+    this.cloudUrl = CLOUD_URLS[region];
+    this.projectId = projectId;
+    this.baseUrl = `${this.cloudUrl}/api/projects/${projectId}`;
+  }
+
+  getProjectUrl(path: string): string {
+    return `${this.cloudUrl}/project/${this.projectId}${path}`;
   }
 
   async get<T>(path: string, schema: z.ZodType<T>): Promise<ApiResult<T>> {
@@ -92,6 +100,14 @@ export class PostHogApiClient {
     schema: z.ZodType<T>,
   ): Promise<ApiResult<T>> {
     return this.request('POST', path, body, schema);
+  }
+
+  async patch<T>(
+    path: string,
+    body: unknown,
+    schema: z.ZodType<T>,
+  ): Promise<ApiResult<T>> {
+    return this.request('PATCH', path, body, schema);
   }
 
   private async request<T>(

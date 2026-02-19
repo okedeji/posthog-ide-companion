@@ -48,6 +48,7 @@ export class ExtensionHost implements vscode.Disposable {
 
   private activeErrorPoller: Poller<void> | undefined;
   private mcpClient: PostHogMcpClient | undefined;
+  private apiClient: PostHogApiClient | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -87,6 +88,7 @@ export class ExtensionHost implements vscode.Disposable {
       getWorkspaceRoot: () =>
         vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       getMcpClient: () => this.mcpClient,
+      getApiClient: () => this.apiClient,
       getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
       chatHistory: new ChatHistory(context.workspaceState),
     });
@@ -259,6 +261,7 @@ export class ExtensionHost implements vscode.Disposable {
       this.stopDiscoveryPolling();
       this.disconnectMcp();
       this._cachedProvider = undefined;
+      this.apiClient = undefined;
       this.discoveryStore.clear();
 
       this.statusProvider.setProject(undefined);
@@ -480,6 +483,7 @@ export class ExtensionHost implements vscode.Disposable {
       return credentials?.token;
     };
     const client = new PostHogApiClient(resolveToken, region, projectId);
+    this.apiClient = client;
     this.activeErrorPoller = createErrorPoller(
       client,
       this.discoveryStore,

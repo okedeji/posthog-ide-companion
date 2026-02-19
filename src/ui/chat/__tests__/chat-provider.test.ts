@@ -73,6 +73,7 @@ function createDeps(
       createMockProvider([{ type: 'text', content: 'Hello!', usage: USAGE }]),
     getWorkspaceRoot: () => '/tmp/test-workspace',
     getMcpClient: () => undefined,
+    getApiClient: () => undefined,
     getWorkspaceInfo: () => undefined,
     chatHistory: new ChatHistory(createMockMemento() as never),
     ...overrides,

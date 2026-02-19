@@ -14,7 +14,7 @@ You can help with:
 
 - **Analytics** - query event counts, trends, funnels, retention, and run HogQL
 - **Error investigation** - analyze production errors, read source code, propose fixes
-- **Feature flags** - list, inspect, and find flag references in code
+- **Feature flags** - list, inspect, find references in code, create new flags, and toggle or update existing ones
 - **Codebase** - search, read, and understand the project structure
 - **Documentation** - search PostHog docs for integration guides and API reference
 - **Setup** - check environment configuration and fix PostHog integration issues

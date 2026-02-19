@@ -9,6 +9,7 @@ import type {
   SessionMessage,
 } from '../../ai/types';
 import type { PostHogMcpClient } from '../../mcp/client';
+import type { PostHogApiClient } from '../../api/client';
 import type { WorkspaceInfo } from '../../workspace/types';
 import type { Discovery } from '../../features/discoveries/types';
 import type { ErrorTrackingIssue } from '../../api/schemas';
@@ -58,6 +59,7 @@ export type ChatProviderDeps = {
   getProvider: () => LLMProvider | undefined;
   getWorkspaceRoot: () => string | undefined;
   getMcpClient: () => PostHogMcpClient | undefined;
+  getApiClient: () => PostHogApiClient | undefined;
   getWorkspaceInfo: () => WorkspaceInfo | undefined;
   chatHistory: ChatHistory;
 };
@@ -284,6 +286,7 @@ export class ChatViewProvider implements vscode.Disposable {
       workspaceRoot,
       logger: this._deps.logger,
       mcpClient: this._deps.getMcpClient(),
+      apiClient: this._deps.getApiClient(),
       workspaceInfo: this._deps.getWorkspaceInfo(),
       onEvent: (event: AgentEvent) => {
         this._postMessage({ type: 'agent_event', event });

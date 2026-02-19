@@ -31,6 +31,9 @@ import type {
   EditApprovalResult,
 } from '../ai/tools/propose-edit';
 import type { PostHogMcpClient } from '../mcp/client';
+import type { PostHogApiClient } from '../api/client';
+import { CreateFeatureFlagTool } from '../ai/tools/create-feature-flag';
+import { UpdateFeatureFlagTool } from '../ai/tools/update-feature-flag';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
 import type {
@@ -50,6 +53,7 @@ export type ChatControllerOptions = {
   workspaceRoot: string;
   logger: Logger;
   mcpClient?: PostHogMcpClient;
+  apiClient?: PostHogApiClient;
   workspaceInfo?: WorkspaceInfo;
   onEvent: AgentEventCallback;
   onConsentRequest: (request: ConsentRequest) => void;
@@ -133,7 +137,7 @@ export class ChatController implements vscode.Disposable {
   }
 
   private _buildRegistry(): ReturnType<typeof createToolRegistry> {
-    const { workspaceRoot, mcpClient } = this._options;
+    const { workspaceRoot, mcpClient, apiClient } = this._options;
 
     const tools: Tool[] = [
       new ReadFileTool(workspaceRoot),
@@ -146,6 +150,13 @@ export class ChatController implements vscode.Disposable {
 
     if (mcpClient) {
       tools.push(...createMcpTools(mcpClient));
+    }
+
+    if (apiClient) {
+      tools.push(
+        new CreateFeatureFlagTool(apiClient),
+        new UpdateFeatureFlagTool(apiClient),
+      );
     }
 
     return createToolRegistry(tools);
