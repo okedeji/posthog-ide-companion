@@ -107,6 +107,37 @@ export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type FeatureFlagFilters = z.infer<typeof FeatureFlagFiltersSchema>;
 export type FeatureFlagGroup = z.infer<typeof FeatureFlagGroupSchema>;
 
+// Experiments — POST/PATCH /api/projects/{id}/experiments/
+
+export const ExperimentVariantSchema = z.object({
+  key: z.string(),
+  name: z.string().optional(),
+  rollout_percentage: z.number(),
+});
+
+export const ExperimentSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  feature_flag_key: z.string(),
+  start_date: z.string().nullable().optional(),
+  end_date: z.string().nullable().optional(),
+  archived: z.boolean().optional(),
+  conclusion: z.string().nullable().optional(),
+  conclusion_comment: z.string().nullable().optional(),
+  parameters: z
+    .object({
+      feature_flag_variants: z.array(ExperimentVariantSchema).optional(),
+      rollout_percentage: z.number().optional(),
+    })
+    .nullable()
+    .optional(),
+  created_at: z.string().optional(),
+});
+
+export type Experiment = z.infer<typeof ExperimentSchema>;
+export type ExperimentVariant = z.infer<typeof ExperimentVariantSchema>;
+
 // GET /api/users/@me/
 export const UserInfoSchema = z.object({
   distinct_id: z.string().optional(),

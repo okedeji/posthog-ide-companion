@@ -34,6 +34,8 @@ import type { PostHogMcpClient } from '../mcp/client';
 import type { PostHogApiClient } from '../api/client';
 import { CreateFeatureFlagTool } from '../ai/tools/create-feature-flag';
 import { UpdateFeatureFlagTool } from '../ai/tools/update-feature-flag';
+import { CreateExperimentTool } from '../ai/tools/create-experiment';
+import { UpdateExperimentTool } from '../ai/tools/update-experiment';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
 import type {
@@ -156,6 +158,8 @@ export class ChatController implements vscode.Disposable {
       tools.push(
         new CreateFeatureFlagTool(apiClient),
         new UpdateFeatureFlagTool(apiClient),
+        new CreateExperimentTool(apiClient),
+        new UpdateExperimentTool(apiClient),
       );
     }
 
