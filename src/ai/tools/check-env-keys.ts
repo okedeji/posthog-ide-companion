@@ -1,5 +1,5 @@
 import * as fs from 'fs/promises';
-import { resolveSafePath, isEnvFile } from './utils';
+import { resolveSafePath, isEnvFile, ENV_KEY_PATTERN } from './utils';
 import type { Tool } from './tool';
 import type { ToolDefinition, ToolCall } from '../types';
 
@@ -58,7 +58,7 @@ export class CheckEnvKeysTool implements Tool {
     try {
       const content = await fs.readFile(resolved, 'utf-8');
       for (const line of content.split('\n')) {
-        const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+        const match = line.match(ENV_KEY_PATTERN);
         if (match?.[1]) {
           existingKeys.add(match[1]);
         }

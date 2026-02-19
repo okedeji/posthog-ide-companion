@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -233,7 +234,10 @@ async function writeTempFile(
   content: string,
 ): Promise<string> {
   const ext = path.extname(originalPath);
-  const tempFile = path.join(os.tmpdir(), `posthog-edit-${Date.now()}${ext}`);
+  const tempFile = path.join(
+    os.tmpdir(),
+    `posthog-edit-${crypto.randomUUID()}${ext}`,
+  );
   await fs.writeFile(tempFile, content, 'utf-8');
   return tempFile;
 }

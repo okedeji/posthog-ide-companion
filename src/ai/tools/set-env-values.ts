@@ -1,6 +1,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { resolveSafePath, isEnvFile, ensureGitignoreCoverage } from './utils';
+import {
+  resolveSafePath,
+  isEnvFile,
+  ensureGitignoreCoverage,
+  ENV_KEY_PATTERN,
+} from './utils';
 import type { Tool } from './tool';
 import type { ToolDefinition, ToolCall } from '../types';
 
@@ -73,7 +78,7 @@ export class SetEnvValuesTool implements Tool {
 
     const updatedKeys = new Set<string>();
     for (let i = 0; i < lines.length; i++) {
-      const match = lines[i]?.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+      const match = lines[i]?.match(ENV_KEY_PATTERN);
       if (match?.[1] && match[1] in values) {
         lines[i] = `${match[1]}=${values[match[1]]}`;
         updatedKeys.add(match[1]);

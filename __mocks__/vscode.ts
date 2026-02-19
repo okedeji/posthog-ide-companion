@@ -44,7 +44,7 @@ export const window = {
         postMessage: jest.fn(async () => true),
         onDidReceiveMessage: jest.fn(),
         cspSource: 'https://test.vscode-cdn.net',
-        asWebviewUri: jest.fn((uri: unknown) => uri),
+        asWebviewUri: jest.fn((uri: { toString: () => string }) => uri.toString()),
       },
       reveal: jest.fn(),
       onDidDispose: jest.fn(),
@@ -160,4 +160,7 @@ export class Uri {
     return new Uri([base.fsPath, ...segments].join('/'));
   }
   private constructor(public readonly fsPath: string) {}
+  toString(): string {
+    return this.fsPath;
+  }
 }

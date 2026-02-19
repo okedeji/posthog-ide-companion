@@ -85,7 +85,6 @@ export class Session {
       });
       this._llmMessages.push({ role: 'user', content: message });
 
-      // Compact old messages into a summary when the conversation gets too long
       if (this._compaction) {
         this._llmMessages = await compactIfNeeded(
           this._provider,

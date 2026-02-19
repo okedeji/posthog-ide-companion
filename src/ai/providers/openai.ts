@@ -13,6 +13,8 @@ import type {
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.2';
 
+const DEFAULT_MAX_TOKENS = 4096;
+
 export class OpenAIProvider implements LLMProvider {
   readonly name = 'openai';
   private readonly client: OpenAI;
@@ -21,12 +23,10 @@ export class OpenAIProvider implements LLMProvider {
     this.client = new OpenAI({ apiKey });
   }
 
-  async generate(
-    messages: LLMMessage[],
-    options?: LLMGenerateOptions,
-  ): Promise<LLMResponse> {
-    const response = await this.client.responses.create({
+  private _buildParams(messages: LLMMessage[], options?: LLMGenerateOptions) {
+    return {
       model: options?.model ?? DEFAULT_OPENAI_MODEL,
+      max_output_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
       input: toOpenAIInput(messages),
       ...(options?.systemPrompt && { instructions: options.systemPrompt }),
       ...(options?.tools?.length && {
@@ -35,10 +35,16 @@ export class OpenAIProvider implements LLMProvider {
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,
       }),
-      ...(options?.maxTokens && {
-        max_output_tokens: options.maxTokens,
-      }),
-    });
+    };
+  }
+
+  async generate(
+    messages: LLMMessage[],
+    options?: LLMGenerateOptions,
+  ): Promise<LLMResponse> {
+    const response = await this.client.responses.create(
+      this._buildParams(messages, options),
+    );
 
     const usage: TokenUsage = {
       inputTokens: response.usage?.input_tokens ?? 0,
@@ -70,19 +76,8 @@ export class OpenAIProvider implements LLMProvider {
     options?: LLMGenerateOptions,
   ): AsyncIterable<LLMStreamEvent> {
     const stream = await this.client.responses.create({
-      model: options?.model ?? DEFAULT_OPENAI_MODEL,
-      input: toOpenAIInput(messages),
+      ...this._buildParams(messages, options),
       stream: true,
-      ...(options?.systemPrompt && { instructions: options.systemPrompt }),
-      ...(options?.tools?.length && {
-        tools: options.tools.map(toOpenAITool),
-      }),
-      ...(options?.temperature !== undefined && {
-        temperature: options.temperature,
-      }),
-      ...(options?.maxTokens && {
-        max_output_tokens: options.maxTokens,
-      }),
     });
 
     let fullText = '';
@@ -126,7 +121,7 @@ export class OpenAIProvider implements LLMProvider {
         (fc) => ({
           id: fc.callId || fc.id,
           name: fc.name,
-          arguments: safeParse(fc.argParts.join('')),
+          arguments: safeParseJson(fc.argParts.join('')),
         }),
       );
       yield { type: 'tool_calls', calls, usage };
@@ -205,11 +200,11 @@ function mapFunctionCalls(
   return calls.map((call) => ({
     id: call.id ?? call.call_id ?? '',
     name: call.name,
-    arguments: safeParse(call.arguments),
+    arguments: safeParseJson(call.arguments),
   }));
 }
 
-function safeParse(json: string): Record<string, unknown> {
+function safeParseJson(json: string): Record<string, unknown> {
   try {
     return JSON.parse(json) as Record<string, unknown>;
   } catch {

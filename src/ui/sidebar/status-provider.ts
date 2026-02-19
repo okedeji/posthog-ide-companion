@@ -12,7 +12,7 @@ type StatusItem = {
 };
 
 export class StatusProvider implements vscode.TreeDataProvider<StatusItem> {
-  static readonly viewType = 'posthog.sidebar';
+  static readonly viewType = 'posthog.status';
 
   private _project: PostHogProject | undefined;
   private _region: CloudRegion | undefined;

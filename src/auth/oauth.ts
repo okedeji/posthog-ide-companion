@@ -221,24 +221,49 @@ export async function refreshAccessToken(
   return OAuthTokenResponseSchema.parse(data);
 }
 
+const OAUTH_PAGE_STYLES = `<style>
+  * {
+    font-family: monospace;
+    background-color: #1b0a00;
+    color: #F7A502;
+    font-weight: medium;
+    font-size: 24px;
+    margin: .25rem;
+  }
+  .blink {
+    animation: blink-animation 1s steps(2, start) infinite;
+  }
+  @keyframes blink-animation {
+    to { opacity: 0; }
+  }
+</style>`;
+
 function buildSuccessPage(): string {
-  return [
-    '<!DOCTYPE html>',
-    '<html><head><title>PostHog IDE Companion</title></head>',
-    '<body style="font-family:system-ui;text-align:center;padding:40px">',
-    '<h2>Authentication successful!</h2>',
-    '<p>You can close this tab and return to VS Code.</p>',
-    '</body></html>',
-  ].join('');
+  return `<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>PostHog IDE Companion</title>
+    ${OAUTH_PAGE_STYLES}
+  </head>
+  <body>
+    <p>PostHog login complete!</p>
+    <p>Return to VS Code: the companion is ready<span class="blink">█</span></p>
+    <script>window.close();</script>
+  </body>
+</html>`;
 }
 
 function buildErrorPage(): string {
-  return [
-    '<!DOCTYPE html>',
-    '<html><head><title>PostHog IDE Companion</title></head>',
-    '<body style="font-family:system-ui;text-align:center;padding:40px">',
-    '<h2>Authentication failed</h2>',
-    '<p>Please close this tab and try again from VS Code.</p>',
-    '</body></html>',
-  ].join('');
+  return `<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>PostHog IDE Companion - Authorization failed</title>
+    ${OAUTH_PAGE_STYLES}
+  </head>
+  <body>
+    <p>Authorization failed.</p>
+    <p>Return to VS Code and try again. This window will close automatically.</p>
+    <script>window.close();</script>
+  </body>
+</html>`;
 }

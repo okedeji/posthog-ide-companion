@@ -160,7 +160,6 @@ export class ChatController implements vscode.Disposable {
       );
     }
 
-    // Tools section auto-generated from the registry - no manual updating needed
     prompt.addSection({
       key: 'tools',
       content: this._registry.toolsPromptSection,
@@ -178,7 +177,7 @@ export class ChatController implements vscode.Disposable {
       tools: this._registry.definitions,
       executor: this._registry.executor,
       onEvent: (event) => {
-        // Inject feedback for proposeEdit tool results (not handled by agent consent)
+        // proposeEdit has its own approval flow, so we attach feedback here instead
         if (
           event.type === 'tool_call_result' &&
           event.call.name === 'proposeEdit' &&

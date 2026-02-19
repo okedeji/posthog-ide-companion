@@ -46,7 +46,7 @@
           "when": "posthog.authenticated && posthog.projectSelected"
         },
         {
-          "id": "posthog.sidebar",
+          "id": "posthog.status",
           "name": "Project",
           "icon": "resources/posthog-icon.svg",
           "when": "posthog.authenticated && posthog.projectSelected",
@@ -120,27 +120,27 @@
       "view/title": [
         {
           "command": "posthog.selectProject",
-          "when": "view == posthog.sidebar",
+          "when": "view == posthog.status",
           "group": "navigation@1"
         },
         {
           "command": "posthog.configureAI",
-          "when": "view == posthog.sidebar",
+          "when": "view == posthog.status",
           "group": "navigation@2"
         },
         {
           "command": "posthog.detectWorkspace",
-          "when": "view == posthog.sidebar",
+          "when": "view == posthog.status",
           "group": "navigation@3"
         },
         {
           "command": "posthog.openDashboard",
-          "when": "view == posthog.sidebar",
+          "when": "view == posthog.status",
           "group": "navigation@4"
         },
         {
           "command": "posthog.signOut",
-          "when": "view == posthog.sidebar",
+          "when": "view == posthog.status",
           "group": "navigation@5"
         },
         {
@@ -152,6 +152,12 @@
           "command": "posthog.openChat",
           "when": "view == posthog.discoveries",
           "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "posthog.investigateDiscovery",
+          "when": "false"
         }
       ]
     }

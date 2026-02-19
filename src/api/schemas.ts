@@ -77,3 +77,10 @@ export type ErrorTrackingIssue = z.infer<typeof ErrorTrackingIssueSchema>;
 export type ErrorTrackingQueryResponse = z.infer<
   typeof ErrorTrackingQueryResponseSchema
 >;
+
+// GET /api/users/@me/
+export const UserInfoSchema = z.object({
+  distinct_id: z.string().optional(),
+  email: z.string().optional(),
+  first_name: z.string().optional(),
+});

@@ -78,8 +78,6 @@ function getKeyForProvider(
   }
 }
 
-// --- AI selection persistence ---
-
 const WORKSPACE_STATE_KEY = 'posthog.aiSelection';
 const DEFAULT_AI_KEY = 'posthog.defaultAISelection';
 

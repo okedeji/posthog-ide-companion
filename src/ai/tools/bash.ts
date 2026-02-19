@@ -118,8 +118,11 @@ function executeCommand(
           parts.push(`[stderr]\n${truncate(stderr, MAX_OUTPUT_BYTES)}`);
         }
 
-        if (error && !stdout && !stderr) {
-          parts.push(`Error: ${error.message}`);
+        if (error) {
+          const code = 'code' in error ? error.code : undefined;
+          parts.push(
+            code != null ? `[exit code ${code}]` : `Error: ${error.message}`,
+          );
         }
 
         resolve(parts.join('\n') || '(no output)');

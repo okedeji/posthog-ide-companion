@@ -25,13 +25,6 @@ export const AccountSchema = z.object({
   label: z.string(),
 });
 
-// GET /api/users/@me/
-export const UserInfoSchema = z.object({
-  distinct_id: z.string().optional(),
-  email: z.string().optional(),
-  first_name: z.string().optional(),
-});
-
 export type DcrResponse = z.infer<typeof DcrResponseSchema>;
 export type OAuthTokenResponse = z.infer<typeof OAuthTokenResponseSchema>;
 export type PostHogAccount = z.infer<typeof AccountSchema>;

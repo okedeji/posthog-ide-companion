@@ -41,7 +41,7 @@ import type { Discovery } from './features/discoveries/types';
 
 export class ExtensionHost implements vscode.Disposable {
   private readonly authProvider: PostHogAuthProvider;
-  private readonly sidebarProvider: StatusProvider;
+  private readonly statusProvider: StatusProvider;
   private readonly discoveryStore: DiscoveryStore;
   private readonly chatProvider: ChatViewProvider;
   private readonly statusBar: vscode.StatusBarItem;
@@ -64,10 +64,10 @@ export class ExtensionHost implements vscode.Disposable {
     );
     context.subscriptions.push(this.authProvider);
 
-    this.sidebarProvider = new StatusProvider();
+    this.statusProvider = new StatusProvider();
     context.subscriptions.push(
       vscode.window.createTreeView(StatusProvider.viewType, {
-        treeDataProvider: this.sidebarProvider,
+        treeDataProvider: this.statusProvider,
       }),
     );
 
@@ -78,7 +78,7 @@ export class ExtensionHost implements vscode.Disposable {
         treeDataProvider: discoveriesProvider,
       }),
     );
-    context.subscriptions.push(this.discoveryStore);
+    context.subscriptions.push(discoveriesProvider, this.discoveryStore);
 
     this.chatProvider = new ChatViewProvider({
       extensionUri: context.extensionUri,
@@ -124,7 +124,7 @@ export class ExtensionHost implements vscode.Disposable {
         void this.configureAI();
       }),
       vscode.commands.registerCommand('posthog.openDashboard', () => {
-        const url = this.sidebarProvider.getDashboardUrl();
+        const url = this.statusProvider.getDashboardUrl();
         if (url) {
           void vscode.env.openExternal(vscode.Uri.parse(url));
         }
@@ -169,12 +169,13 @@ export class ExtensionHost implements vscode.Disposable {
       return;
     }
 
-    this.sidebarProvider.setProject(project, credentials.region);
+    this.statusProvider.setProject(project, credentials.region);
     this.updateStatusBar('project', project.name);
     await setContextKeys(true, true);
     this.logger.info(`Restored project: ${project.name}`);
 
     this.startDiscoveryPolling(credentials.region, project.id);
+    void this.connectMcp(credentials.token, project.id);
     await this.restoreAISelection();
   }
 
@@ -189,9 +190,7 @@ export class ExtensionHost implements vscode.Disposable {
       return undefined;
     }
 
-    // AIConfig is async, but we need a sync getter for the ChatViewProvider.
-    // The provider is only created on first chat message, so the secrets
-    // are already loaded by then. We cache the result to avoid repeat lookups.
+    // Sync getter. Safe because the provider is only resolved after secrets are loaded.
     if (this._cachedProvider) {
       return this._cachedProvider;
     }
@@ -262,8 +261,8 @@ export class ExtensionHost implements vscode.Disposable {
       this._cachedProvider = undefined;
       this.discoveryStore.clear();
 
-      this.sidebarProvider.setProject(undefined);
-      this.sidebarProvider.setAISelection(undefined);
+      this.statusProvider.setProject(undefined);
+      this.statusProvider.setAISelection(undefined);
       this.updateStatusBar('signedOut');
       await setContextKeys(false, false);
 
@@ -307,22 +306,23 @@ export class ExtensionHost implements vscode.Disposable {
       }
 
       await setActiveProject(this.context, selected);
-      this.sidebarProvider.setProject(selected, credentials.region);
+      this.statusProvider.setProject(selected, credentials.region);
       this.updateStatusBar('project', selected.name);
       await setContextKeys(true, true);
 
       this.startDiscoveryPolling(credentials.region, selected.id);
+      void this.connectMcp(credentials.token, selected.id);
       this.logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
       const aiSelection = getActiveAISelection(this.context);
       if (aiSelection) {
         const aiConfig = await getAIConfig(this.context.secrets);
         const label = getModelLabel(aiSelection);
-        this.sidebarProvider.setAISelection(aiSelection, label);
+        this.statusProvider.setAISelection(aiSelection, label);
         if (hasApiKey(aiConfig, aiSelection.provider)) {
           const workspaceInfo = getStoredWorkspaceInfo(this.context);
           if (workspaceInfo) {
-            this.sidebarProvider.setWorkspaceDetection(
+            this.statusProvider.setWorkspaceDetection(
               'complete',
               workspaceInfo,
             );
@@ -346,7 +346,7 @@ export class ExtensionHost implements vscode.Disposable {
 
       if (selection) {
         const label = getModelLabel(selection);
-        this.sidebarProvider.setAISelection(selection, label);
+        this.statusProvider.setAISelection(selection, label);
         this.logger.info(`AI configured: ${selection.provider} (${label})`);
         await this._refreshCachedProvider();
 
@@ -354,7 +354,7 @@ export class ExtensionHost implements vscode.Disposable {
           void this.triggerWorkspaceDetection();
         }
       } else {
-        this.sidebarProvider.setAISelection(undefined);
+        this.statusProvider.setAISelection(undefined);
         this._cachedProvider = undefined;
       }
     } catch (err) {
@@ -391,7 +391,7 @@ export class ExtensionHost implements vscode.Disposable {
     detectionStatus.text = '$(loading~spin) PostHog: Analyzing workspace…';
     detectionStatus.tooltip = 'Workspace detection in progress';
     detectionStatus.show();
-    this.sidebarProvider.setWorkspaceDetection('running');
+    this.statusProvider.setWorkspaceDetection('running');
 
     try {
       const info = await vscode.window.withProgress(
@@ -436,20 +436,20 @@ export class ExtensionHost implements vscode.Disposable {
 
       if (info) {
         await setStoredWorkspaceInfo(this.context, info);
-        this.sidebarProvider.setWorkspaceDetection('complete', info);
+        this.statusProvider.setWorkspaceDetection('complete', info);
         this.mergeSetupIssues(info.setupIssues);
         this.logger.info(
           `Workspace detected: ${info.language} (${info.frameworks.join(', ') || 'no frameworks'})`,
         );
       } else {
-        this.sidebarProvider.setWorkspaceDetection('failed');
+        this.statusProvider.setWorkspaceDetection('failed');
         this.logger.info('Workspace detection returned no results');
         void vscode.window.showWarningMessage(
           'PostHog: Could not analyze workspace. You can retry via Command Palette -> "PostHog: Detect Workspace".',
         );
       }
     } catch (err) {
-      this.sidebarProvider.setWorkspaceDetection('failed');
+      this.statusProvider.setWorkspaceDetection('failed');
       this.logger.error('Workspace detection failed', err);
       void vscode.window.showWarningMessage(
         'PostHog: Workspace detection failed. You can retry via Command Palette -> "PostHog: Detect Workspace".',
@@ -487,13 +487,6 @@ export class ExtensionHost implements vscode.Disposable {
     );
     this.activeErrorPoller.start();
     this.logger.info('Discovery polling started');
-
-    // Connect MCP in background (non-fatal if it fails)
-    void resolveToken().then((token) => {
-      if (token) {
-        void this.connectMcp(token, projectId);
-      }
-    });
   }
 
   private stopDiscoveryPolling(): void {
@@ -512,7 +505,7 @@ export class ExtensionHost implements vscode.Disposable {
     await setActiveAISelection(this.context, aiSelection);
     const aiConfig = await getAIConfig(this.context.secrets);
     const label = getModelLabel(aiSelection);
-    this.sidebarProvider.setAISelection(aiSelection, label);
+    this.statusProvider.setAISelection(aiSelection, label);
 
     if (!hasApiKey(aiConfig, aiSelection.provider)) {
       this.logger.info(`AI configured as ${label} but API key is missing`);
@@ -528,7 +521,7 @@ export class ExtensionHost implements vscode.Disposable {
       return;
     }
 
-    this.sidebarProvider.setWorkspaceDetection('complete', workspaceInfo);
+    this.statusProvider.setWorkspaceDetection('complete', workspaceInfo);
     this.mergeSetupIssues(workspaceInfo.setupIssues);
     if (isWorkspaceInfoStale(workspaceInfo)) {
       void this.promptStaleWorkspaceRedetection();

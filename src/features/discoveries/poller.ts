@@ -24,7 +24,7 @@ export class Poller<T> implements vscode.Disposable {
       return;
     }
 
-    this.options.logger?.debug(`[${this.options.label}] poller started`);
+    this.options.logger?.info(`"${this.options.label}" poller started`);
 
     void this.execute();
 
@@ -37,7 +37,7 @@ export class Poller<T> implements vscode.Disposable {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = undefined;
-      this.options.logger?.debug(`[${this.options.label}] poller stopped`);
+      this.options.logger?.info(`"${this.options.label}" poller stopped`);
     }
   }
 

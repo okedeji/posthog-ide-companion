@@ -23,11 +23,8 @@ export class AnthropicProvider implements LLMProvider {
     this.client = new Anthropic({ apiKey });
   }
 
-  async generate(
-    messages: LLMMessage[],
-    options?: LLMGenerateOptions,
-  ): Promise<LLMResponse> {
-    const response = await this.client.messages.create({
+  private _buildParams(messages: LLMMessage[], options?: LLMGenerateOptions) {
+    return {
       model: options?.model ?? DEFAULT_ANTHROPIC_MODEL,
       max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
       messages: toAnthropicMessages(messages),
@@ -38,7 +35,16 @@ export class AnthropicProvider implements LLMProvider {
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,
       }),
-    });
+    };
+  }
+
+  async generate(
+    messages: LLMMessage[],
+    options?: LLMGenerateOptions,
+  ): Promise<LLMResponse> {
+    const response = await this.client.messages.create(
+      this._buildParams(messages, options),
+    );
 
     const usage: TokenUsage = {
       inputTokens: response.usage.input_tokens,
@@ -56,18 +62,9 @@ export class AnthropicProvider implements LLMProvider {
     messages: LLMMessage[],
     options?: LLMGenerateOptions,
   ): AsyncIterable<LLMStreamEvent> {
-    const stream = this.client.messages.stream({
-      model: options?.model ?? DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
-      messages: toAnthropicMessages(messages),
-      ...(options?.systemPrompt && { system: options.systemPrompt }),
-      ...(options?.tools?.length && {
-        tools: options.tools.map(toAnthropicTool),
-      }),
-      ...(options?.temperature !== undefined && {
-        temperature: options.temperature,
-      }),
-    });
+    const stream = this.client.messages.stream(
+      this._buildParams(messages, options),
+    );
 
     let fullText = '';
     const toolCalls = new Map<

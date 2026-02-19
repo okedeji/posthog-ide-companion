@@ -13,7 +13,6 @@ import type {
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
-// Call provider -> execute tool calls -> repeat until text or iteration limit.
 export async function runAgentLoop(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -72,7 +71,7 @@ export async function runAgentLoop(
 
     if (response.type === 'text') {
       const content = signal?.aborted
-        ? response.content + '\n\n*interrupted.*'
+        ? response.content + '\n\n*Interrupted.*'
         : response.content;
       emit({ type: 'text_response', content, isFinal: true });
       const result: AgentResult = { content, totalUsage, iterations };
@@ -93,10 +92,6 @@ export async function runAgentLoop(
         input: call.arguments,
       })),
     });
-
-    if (signal?.aborted) {
-      break;
-    }
 
     const results = await Promise.all(
       response.calls.map(async (call) => {
@@ -169,11 +164,11 @@ export async function runAgentLoop(
   if (signal?.aborted) {
     emit({
       type: 'text_response',
-      content: '*Request cancelled.*',
+      content: '*Interrupted.*',
       isFinal: true,
     });
     const result: AgentResult = {
-      content: 'Request cancelled.',
+      content: 'Interrupted.',
       totalUsage,
       iterations,
     };
@@ -181,7 +176,6 @@ export async function runAgentLoop(
     return result;
   }
 
-  // Hit the iteration limit, force a text summary
   return forceTextResponse(
     provider,
     conversation,
@@ -192,8 +186,6 @@ export async function runAgentLoop(
   );
 }
 
-// Consume a stream, emitting text_response events for text deltas.
-// Returns an LLMResponse-compatible result.
 async function consumeStream(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -226,7 +218,6 @@ async function consumeStream(
   };
 }
 
-// Final call without tools so the LLM summarizes what it's done so far.
 async function forceTextResponse(
   provider: LLMProvider,
   conversation: LLMMessage[],

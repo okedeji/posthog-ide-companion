@@ -4,41 +4,34 @@ import * as path from 'path';
 export const MAX_FILE_SIZE = 1_048_576; // 1 MB
 export const MAX_SEARCH_RESULTS = 50;
 
-// Matched against basename. Never read or return in search results.
+export const ENV_KEY_PATTERN = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/;
+
 export const SENSITIVE_FILE_PATTERNS: readonly string[] = [
-  // Environment files (.env is prefix-matched: catches .env, .env.local, etc.)
   '.env',
   '.envrc',
-  // Private keys and certificates
   '*.pem',
   '*.key',
   '*.p12',
   '*.pfx',
   '*.jks',
-  // SSH keys
   'id_rsa',
   'id_ed25519',
   'id_ecdsa',
   'id_dsa',
-  // Cloud & service credentials
   'credentials.json',
   'service-account.json',
   'serviceAccountKey.json',
-  // Auth tokens and configs
   '.npmrc',
   '.pypirc',
   '.netrc',
   '.htpasswd',
-  // Docker secrets
   '*.secret',
 ];
 
 export const EXCLUDED_DIRS: readonly string[] = [
-  // VCS
   '.git',
   '.svn',
   '.hg',
-  // JS / TS
   'node_modules',
   'dist',
   'build',
@@ -46,7 +39,6 @@ export const EXCLUDED_DIRS: readonly string[] = [
   '.nuxt',
   '.vite',
   '.turbo',
-  // Python
   '__pycache__',
   '.venv',
   'venv',
@@ -54,33 +46,25 @@ export const EXCLUDED_DIRS: readonly string[] = [
   '.eggs',
   '.mypy_cache',
   '.pytest_cache',
-  // Java / Kotlin / Scala
   'target',
   '.gradle',
-  // Go
   'vendor',
-  // Ruby
   '.bundle',
-  // .NET
   'bin',
   'obj',
-  // General
   'coverage',
   '.cache',
   '.idea',
   '.vscode',
 ];
 
-// Resolves relative path within workspace, following symlinks.
-// Returns undefined if the resolved path escapes the workspace root.
-// Both sides go through realpath because macOS /var -> /private/var.
+// Both sides need realpath because macOS rewrites /var to /private/var.
 export async function resolveSafePath(
   root: string,
   relative: string,
 ): Promise<string | undefined> {
   const resolved = path.resolve(root, relative);
 
-  // Quick lexical check first (catches obvious ../../../ traversals)
   if (!resolved.startsWith(root)) {
     return undefined;
   }
@@ -107,17 +91,14 @@ export function isSensitiveFile(filePath: string): boolean {
 
   for (const pattern of SENSITIVE_FILE_PATTERNS) {
     if (pattern.startsWith('*.')) {
-      // Extension match: *.pem matches server.pem
       if (basename.endsWith(pattern.slice(1))) {
         return true;
       }
     } else if (pattern === '.env') {
-      // .env prefix match: .env, .env.local, .env.anything
       if (basename === '.env' || basename.startsWith('.env.')) {
         return true;
       }
     } else {
-      // Exact match
       if (basename === pattern) {
         return true;
       }
@@ -148,7 +129,6 @@ export async function ensureGitignoreCoverage(
   const lines = content.split('\n');
   const alreadyCovered = lines.some((line) => {
     const trimmed = line.trim();
-    // Exact match or wildcard patterns that would cover this file
     return (
       trimmed === envFileName ||
       trimmed === '.env*' ||

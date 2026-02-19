@@ -33,7 +33,9 @@ const SEVERITY_STYLE: Record<string, { icon: string; color: string }> = {
   info: { icon: 'info', color: 'notificationsInfoIcon.foreground' },
 };
 
-export class DiscoveriesProvider implements vscode.TreeDataProvider<DiscoveryTreeNode> {
+export class DiscoveriesProvider
+  implements vscode.TreeDataProvider<DiscoveryTreeNode>, vscode.Disposable
+{
   static readonly viewType = 'posthog.discoveries';
 
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<void>();

@@ -147,7 +147,7 @@ export type SessionOptions = {
   executor?: ToolExecutor;
   agentOptions?: Omit<AgentLoopOptions, 'systemPrompt' | 'onEvent'>;
   onEvent?: AgentEventCallback;
-  // set to {} for defaults or provide overrides. Disabled by default.
+  // Pass {} for defaults or provide overrides. Omit to disable.
   compaction?: CompactionOptions;
 };
 

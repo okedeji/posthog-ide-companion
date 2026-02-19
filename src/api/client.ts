@@ -2,7 +2,8 @@ import type { z } from 'zod';
 import type { CloudRegion } from '../auth/constants';
 import { CLOUD_URLS } from '../auth/constants';
 import type { PostHogProject } from './schemas';
-import { ProjectListSchema } from './schemas';
+import type { PostHogAccount } from '../auth/schemas';
+import { ProjectListSchema, UserInfoSchema } from './schemas';
 
 export async function fetchProjects(
   token: string,
@@ -21,6 +22,37 @@ export async function fetchProjects(
   const data: unknown = await response.json();
   const parsed = ProjectListSchema.parse(data);
   return parsed.results;
+}
+
+export async function fetchAccountInfo(
+  token: string,
+  region: CloudRegion,
+): Promise<PostHogAccount> {
+  const cloudUrl = CLOUD_URLS[region];
+  const fallback: PostHogAccount = { id: 'unknown', label: 'PostHog User' };
+
+  try {
+    const response = await fetch(`${cloudUrl}/api/users/@me/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      return fallback;
+    }
+
+    const raw: unknown = await response.json();
+    const parsed = UserInfoSchema.safeParse(raw);
+    if (!parsed.success) {
+      return fallback;
+    }
+
+    return {
+      id: parsed.data.distinct_id ?? 'unknown',
+      label: parsed.data.first_name ?? parsed.data.email ?? 'PostHog User',
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 export type ApiError = {

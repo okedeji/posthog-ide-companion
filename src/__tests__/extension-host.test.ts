@@ -110,7 +110,7 @@ describe('ExtensionHost', () => {
 
   // Stored references to mock instances (mockImplementation returns these)
   let authInstance: Record<string, jest.Mock>;
-  let sidebarInstance: Record<string, jest.Mock>;
+  let statusInstance: Record<string, jest.Mock>;
   let storeInstance: Record<string, jest.Mock>;
   let pollerInstance: Record<string, jest.Mock>;
 
@@ -126,17 +126,17 @@ describe('ExtensionHost', () => {
       () => authInstance,
     );
 
-    sidebarInstance = {
+    statusInstance = {
       setProject: jest.fn(),
       setAISelection: jest.fn(),
       setWorkspaceDetection: jest.fn(),
       getDashboardUrl: jest.fn(() => undefined),
     };
     (StatusProvider as unknown as jest.Mock).mockImplementation(
-      () => sidebarInstance,
+      () => statusInstance,
     );
     (StatusProvider as unknown as Record<string, string>).viewType =
-      'posthog.sidebar';
+      'posthog.status';
 
     storeInstance = {
       merge: jest.fn(() => 0),
@@ -190,9 +190,9 @@ describe('ExtensionHost', () => {
       );
     });
 
-    it('should create tree views for sidebar and discoveries', () => {
+    it('should create tree views for status and discoveries', () => {
       const createTreeView = vscode.window.createTreeView as jest.Mock;
-      expect(createTreeView).toHaveBeenCalledWith('posthog.sidebar', {
+      expect(createTreeView).toHaveBeenCalledWith('posthog.status', {
         treeDataProvider: expect.anything(),
       });
       expect(createTreeView).toHaveBeenCalledWith('posthog.discoveries', {
@@ -258,7 +258,7 @@ describe('ExtensionHost', () => {
       expect(logger.info).toHaveBeenCalledWith(
         `Restored project: ${sampleProject.name}`,
       );
-      expect(sidebarInstance.setProject).toHaveBeenCalledWith(
+      expect(statusInstance.setProject).toHaveBeenCalledWith(
         sampleProject,
         'us',
       );
@@ -279,7 +279,7 @@ describe('ExtensionHost', () => {
         context,
         aiSelection,
       );
-      expect(sidebarInstance.setAISelection).toHaveBeenCalledWith(
+      expect(statusInstance.setAISelection).toHaveBeenCalledWith(
         aiSelection,
         'claude-sonnet',
       );
@@ -317,8 +317,8 @@ describe('ExtensionHost', () => {
       expect(authInstance.removeSession).toHaveBeenCalled();
       expect(mockClearActiveProject).toHaveBeenCalledWith(context);
       expect(storeInstance.clear).toHaveBeenCalled();
-      expect(sidebarInstance.setProject).toHaveBeenCalledWith(undefined);
-      expect(sidebarInstance.setAISelection).toHaveBeenCalledWith(undefined);
+      expect(statusInstance.setProject).toHaveBeenCalledWith(undefined);
+      expect(statusInstance.setAISelection).toHaveBeenCalledWith(undefined);
     });
   });
 
@@ -339,7 +339,7 @@ describe('ExtensionHost', () => {
       await tick();
 
       expect(mockSetActiveProject).toHaveBeenCalledWith(context, sampleProject);
-      expect(sidebarInstance.setProject).toHaveBeenCalledWith(
+      expect(statusInstance.setProject).toHaveBeenCalledWith(
         sampleProject,
         'us',
       );

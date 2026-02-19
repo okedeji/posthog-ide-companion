@@ -16,7 +16,7 @@ import type { ChatHistory, ChatSessionSummary } from '../../chat/history';
 import type { Logger } from '../../utils/logger';
 import { deriveSessionTitle } from '../../chat/history';
 
-// Extension → Webview messages
+// Sent from the extension to the webview
 type WebviewMessage =
   | { type: 'history'; messages: readonly SessionMessage[] }
   | { type: 'agent_event'; event: AgentEvent }
@@ -40,7 +40,7 @@ type WebviewMessage =
       sessions: ChatSessionSummary[];
     };
 
-// Webview → Extension messages
+// Sent from the webview to the extension
 type IncomingMessage =
   | { type: 'send'; text: string }
   | { type: 'consent_decision'; callId: string; decision: ConsentDecision }
@@ -51,11 +51,7 @@ type IncomingMessage =
   | { type: 'cancel' }
   | { type: 'ready' };
 
-/**
- * Dependencies injected from the extension host.
- * Getters are used because these may change during the session
- * (e.g. user switches project, reconfigures AI provider).
- */
+// Used getters because these can change mid-session (e.g. user switches llm provider).
 export type ChatProviderDeps = {
   extensionUri: vscode.Uri;
   logger: Logger;
@@ -66,11 +62,6 @@ export type ChatProviderDeps = {
   chatHistory: ChatHistory;
 };
 
-/**
- * Manages the chat WebviewPanel (editor tab).
- * Opens the chat beside the current editor, reuses the panel if already open.
- * Supports serialization so the panel restores after VSCode restart.
- */
 export class ChatViewProvider implements vscode.Disposable {
   static readonly viewType = 'posthog.chat';
 
@@ -81,10 +72,6 @@ export class ChatViewProvider implements vscode.Disposable {
 
   constructor(private readonly _deps: ChatProviderDeps) {}
 
-  /**
-   * Opens the chat panel beside the current editor, or reveals it if already open.
-   * Always starts a fresh conversation (saves current one to history first).
-   */
   open(): void {
     if (this._panel) {
       this._saveAndReset();
@@ -108,11 +95,7 @@ export class ChatViewProvider implements vscode.Disposable {
     void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
   }
 
-  /**
-   * Restores a serialized panel after VSCode restart.
-   * Called by the WebviewPanelSerializer registered in extension-host.
-   * @param panel - The panel restored by VSCode
-   */
+  // Called by WebviewPanelSerializer when VSCode restores a previous session.
   revive(panel: vscode.WebviewPanel): void {
     this._initPanel(panel);
 
@@ -120,11 +103,6 @@ export class ChatViewProvider implements vscode.Disposable {
     setTimeout(() => panel.reveal(), 500);
   }
 
-  /**
-   * Loads a discovery context into the chat. Opens the panel if needed,
-   * starts a fresh conversation, and shows a banner with the discovery info.
-   * @param discovery - The discovery to investigate
-   */
   loadDiscoveryContext(discovery: Discovery): void {
     this.open();
 
@@ -152,8 +130,6 @@ export class ChatViewProvider implements vscode.Disposable {
     }
     this._disposables = [];
   }
-
-  // --- Panel setup (shared between open and revive) ---
 
   private _initPanel(panel: vscode.WebviewPanel): void {
     this._panel = panel;
@@ -189,8 +165,6 @@ export class ChatViewProvider implements vscode.Disposable {
     );
   }
 
-  // --- Session persistence ---
-
   private _saveCurrentSession(): void {
     const messages = this._controller?.messages;
     if (!messages || messages.length === 0) {
@@ -214,8 +188,6 @@ export class ChatViewProvider implements vscode.Disposable {
     this._postHistory();
     this._postState();
   }
-
-  // --- Message handling ---
 
   private _handleMessage(msg: IncomingMessage): void {
     switch (msg.type) {
@@ -260,14 +232,12 @@ export class ChatViewProvider implements vscode.Disposable {
       return;
     }
 
-    // Save current session before switching
     this._saveCurrentSession();
     this._controller?.dispose();
     this._controller = undefined;
 
     this._sessionId = session.id;
 
-    // Send the loaded session's messages to the webview
     this._postMessage({ type: 'history', messages: session.messages });
     this._postState();
   }
@@ -294,8 +264,6 @@ export class ChatViewProvider implements vscode.Disposable {
     this._postHistory();
     this._postState();
   }
-
-  // --- Controller lifecycle ---
 
   private _ensureController(): ChatController | undefined {
     if (this._controller) {
@@ -332,8 +300,6 @@ export class ChatViewProvider implements vscode.Disposable {
 
     return this._controller;
   }
-
-  // --- Webview communication ---
 
   private _postMessage(msg: WebviewMessage): void {
     void this._panel?.webview.postMessage(msg);

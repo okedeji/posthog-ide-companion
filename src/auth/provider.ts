@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import type { CloudRegion } from './constants';
 import type { PostHogAccount } from './schemas';
-import { AUTH_PROVIDER_ID, CLOUD_URLS } from './constants';
-import { AccountSchema, UserInfoSchema } from './schemas';
+import { AUTH_PROVIDER_ID } from './constants';
+import { fetchAccountInfo } from '../api/client';
+import { showCloudRegionPicker } from '../ui/pickers/cloud-region';
+import { AccountSchema } from './schemas';
 import { performOAuthFlow, refreshAccessToken } from './oauth';
 
 const SECRET_KEYS = {
@@ -80,7 +82,7 @@ export class PostHogAuthProvider
   async createSession(
     _scopes: readonly string[],
   ): Promise<vscode.AuthenticationSession> {
-    const region = await this.askForCloudRegion();
+    const region = await showCloudRegionPicker();
     if (!region) {
       throw new Error('Cloud region selection cancelled');
     }
@@ -101,10 +103,7 @@ export class PostHogAuthProvider
     await this.secretStorage.store(SECRET_KEYS.region, region);
     await this.secretStorage.store(SECRET_KEYS.clientId, clientId);
 
-    const account = await this.fetchAccountInfo(
-      tokenResponse.access_token,
-      region,
-    );
+    const account = await fetchAccountInfo(tokenResponse.access_token, region);
     await this.secretStorage.store(
       SECRET_KEYS.account,
       JSON.stringify(account),
@@ -182,30 +181,6 @@ export class PostHogAuthProvider
     return region;
   }
 
-  private async askForCloudRegion(): Promise<CloudRegion | undefined> {
-    const items: (vscode.QuickPickItem & {
-      region: CloudRegion;
-    })[] = [
-      {
-        label: '$(cloud) US Cloud',
-        description: 'us.posthog.com',
-        region: 'us',
-      },
-      {
-        label: '$(cloud) EU Cloud',
-        description: 'eu.posthog.com',
-        region: 'eu',
-      },
-    ];
-
-    const picked = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select your PostHog Cloud region',
-      ignoreFocusOut: true,
-    });
-
-    return picked?.region;
-  }
-
   private async isTokenExpired(): Promise<boolean> {
     const expiresAt = await this.secretStorage.get(SECRET_KEYS.expiresAt);
     if (!expiresAt) {
@@ -273,39 +248,11 @@ export class PostHogAuthProvider
     }
   }
 
-  private async fetchAccountInfo(
-    token: string,
-    region: CloudRegion,
-  ): Promise<PostHogAccount> {
-    try {
-      const cloudUrl = CLOUD_URLS[region];
-      const response = await fetch(`${cloudUrl}/api/users/@me/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        return { id: 'unknown', label: 'PostHog User' };
-      }
-
-      const raw: unknown = await response.json();
-      const parsed = UserInfoSchema.safeParse(raw);
-      if (!parsed.success) {
-        return { id: 'unknown', label: 'PostHog User' };
-      }
-
-      return {
-        id: parsed.data.distinct_id ?? 'unknown',
-        label: parsed.data.first_name ?? parsed.data.email ?? 'PostHog User',
-      };
-    } catch {
-      return { id: 'unknown', label: 'PostHog User' };
-    }
-  }
-
   private async handleCrossWindowChange(): Promise<void> {
     const storedToken = await this.secretStorage.get(SECRET_KEYS.accessToken);
     const previousToken = this._cachedToken;
 
+    // Signed in from another window
     if (storedToken && !previousToken) {
       const sessions = await this.getSessions();
       this._onDidChangeSessions.fire({
@@ -313,6 +260,7 @@ export class PostHogAuthProvider
         removed: [],
         changed: [],
       });
+      // Signed out from another window
     } else if (!storedToken && previousToken) {
       const account = await this.readAccount();
       this._cachedToken = undefined;
@@ -328,6 +276,7 @@ export class PostHogAuthProvider
         ],
         changed: [],
       });
+      // Token refreshed from another window
     } else if (storedToken && previousToken && storedToken !== previousToken) {
       const sessions = await this.getSessions();
       this._onDidChangeSessions.fire({

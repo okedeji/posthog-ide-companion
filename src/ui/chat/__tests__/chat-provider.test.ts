@@ -13,8 +13,6 @@ import { Uri, window } from 'vscode';
 
 const USAGE = { inputTokens: 10, outputTokens: 5 };
 
-// --- Mocks ---
-
 function createMockMemento(): { get: jest.Mock; update: jest.Mock } {
   const store = new Map<string, unknown>();
   return {
@@ -107,8 +105,6 @@ function setupProvider(deps?: Partial<ChatProviderDeps>) {
   return { provider, panel, send };
 }
 
-// --- Tests ---
-
 describe('ChatViewProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -128,7 +124,8 @@ describe('ChatViewProvider', () => {
         }),
       );
       expect(panel.webview.html).toContain('<!DOCTYPE html>');
-      expect(panel.webview.html).toContain('PostHog Companion');
+      expect(panel.webview.html).toContain('chat.css');
+      expect(panel.webview.html).toContain('chat.js');
     });
 
     it('should reveal existing panel instead of creating a new one', () => {

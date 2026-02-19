@@ -679,8 +679,6 @@ describe('consent', () => {
   });
 });
 
-// --- Streaming mode ---
-
 function createStreamingProvider(
   streamResponses: LLMStreamEvent[][],
 ): LLMProvider {

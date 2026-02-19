@@ -9,7 +9,7 @@ import { Poller, DEFAULT_POLL_INTERVAL_MS } from '../poller';
 
 const LOOKBACK_DAYS = 7;
 
-function buildErrorTrackingQuery(): Record<string, unknown> {
+function buildErrorTrackingQuery() {
   const now = new Date();
   const lookback = new Date(
     now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000,

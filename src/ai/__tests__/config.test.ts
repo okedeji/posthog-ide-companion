@@ -184,8 +184,6 @@ describe('removeApiKey', () => {
   });
 });
 
-// --- AI selection persistence ---
-
 /** Creates a minimal mock of ExtensionContext with in-memory state. */
 function createMockContext() {
   const workspaceState = new Map<string, unknown>();

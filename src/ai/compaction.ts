@@ -29,7 +29,6 @@ export async function compactIfNeeded(
   // Number of individual messages to keep (each pair = user + assistant)
   const preserveCount = preservePairs * 2;
 
-  // Not enough messages to compact, keep everything
   if (messages.length <= preserveCount) {
     return messages;
   }
