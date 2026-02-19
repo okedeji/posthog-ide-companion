@@ -138,6 +138,32 @@ export const ExperimentSchema = z.object({
 export type Experiment = z.infer<typeof ExperimentSchema>;
 export type ExperimentVariant = z.infer<typeof ExperimentVariantSchema>;
 
+// Insights — POST/PATCH /api/projects/{id}/insights/
+
+export const InsightSchema = z.object({
+  id: z.number(),
+  short_id: z.string(),
+  name: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  filters: z.record(z.unknown()).optional(),
+  query: z.unknown().nullable().optional(),
+  dashboards: z.array(z.number()).nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+export type Insight = z.infer<typeof InsightSchema>;
+
+// Dashboards — POST /api/projects/{id}/dashboards/
+
+export const DashboardSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+export type Dashboard = z.infer<typeof DashboardSchema>;
+
 // GET /api/users/@me/
 export const UserInfoSchema = z.object({
   distinct_id: z.string().optional(),
