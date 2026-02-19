@@ -105,8 +105,10 @@ export function createErrorPoller(
       }
 
       const discoveries = result.data.results.map(issueToDiscovery);
-      const newCount = store.merge(discoveries);
+      const knownIds = new Set(store.getByKind('error').map((d) => d.id));
+      store.replaceByKind('error', discoveries);
 
+      const newCount = discoveries.filter((d) => !knownIds.has(d.id)).length;
       if (newCount > 0) {
         const label = newCount === 1 ? 'error' : 'errors';
         void vscode.window.showInformationMessage(

@@ -91,6 +91,7 @@ export class ExtensionHost implements vscode.Disposable {
       getApiClient: () => this.apiClient,
       getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
       chatHistory: new ChatHistory(context.workspaceState),
+      onDiscoveryResolved: (id) => this.discoveryStore.remove(id),
     });
     context.subscriptions.push(this.chatProvider);
 
@@ -533,15 +534,9 @@ export class ExtensionHost implements vscode.Disposable {
   }
 
   private mergeSetupIssues(setupIssues: WorkspaceInfo['setupIssues']): void {
-    if (setupIssues.length === 0) {
-      return;
-    }
-
     const discoveries = workspaceInfoToSetupDiscoveries(setupIssues);
-    const newCount = this.discoveryStore.merge(discoveries);
-    this.logger.info(
-      `Merged ${discoveries.length} setup issues (${newCount} new)`,
-    );
+    this.discoveryStore.replaceByKind('setup_issue', discoveries);
+    this.logger.info(`Replaced setup issues (${discoveries.length} current)`);
   }
 
   private updateStatusBar(

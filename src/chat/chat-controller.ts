@@ -41,6 +41,8 @@ import { CreateDashboardTool } from '../ai/tools/create-dashboard';
 import { AddInsightToDashboardTool } from '../ai/tools/add-insight-to-dashboard';
 import { CreateSurveyTool } from '../ai/tools/create-survey';
 import { UpdateSurveyTool } from '../ai/tools/update-survey';
+import { UpdateErrorStatusTool } from '../ai/tools/update-error-status';
+import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
 import type {
@@ -64,6 +66,7 @@ export type ChatControllerOptions = {
   workspaceInfo?: WorkspaceInfo;
   onEvent: AgentEventCallback;
   onConsentRequest: (request: ConsentRequest) => void;
+  onDiscoveryResolved?: (discoveryId: string) => void;
 };
 
 export class ChatController implements vscode.Disposable {
@@ -153,6 +156,9 @@ export class ChatController implements vscode.Disposable {
       new CheckEnvKeysTool(workspaceRoot),
       new BashTool(workspaceRoot),
       new ProposeEditTool(workspaceRoot, this._handleEditApproval),
+      new DismissDiscoveryTool((discoveryId) => {
+        this._options.onDiscoveryResolved?.(discoveryId);
+      }),
     ];
 
     if (mcpClient) {
@@ -170,6 +176,11 @@ export class ChatController implements vscode.Disposable {
         new AddInsightToDashboardTool(apiClient),
         new CreateSurveyTool(apiClient),
         new UpdateSurveyTool(apiClient),
+        new UpdateErrorStatusTool(apiClient, (errorId, status) => {
+          if (status !== 'active') {
+            this._options.onDiscoveryResolved?.(`error:${errorId}`);
+          }
+        }),
       );
     }
 

@@ -211,6 +211,8 @@ export function buildSetupIssueDiscoveryContext(
   const lines: string[] = [
     `## Setup Issue: ${discovery.title}`,
     '',
+    `Discovery ID: \`${discovery.id}\``,
+    '',
     discovery.description,
   ];
 
@@ -241,6 +243,10 @@ export function buildSetupIssueDiscoveryContext(
   lines.push(
     '3. **Explain and fix** - explain what needs to change based on the docs and the code, ' +
       'then propose the fix using proposeEdit.',
+  );
+  lines.push(
+    '4. **Dismiss** - once all fixes have been applied, call dismissDiscovery ' +
+      `with id \`${discovery.id}\` to remove it from the discoveries panel.`,
   );
 
   return lines.join('\n');

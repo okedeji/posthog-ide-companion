@@ -211,6 +211,32 @@ describe('createErrorPoller', () => {
     poller.dispose();
   });
 
+  it('should remove resolved errors on next poll', async () => {
+    const store = new DiscoveryStore();
+    const issue1 = makeIssue({ id: 'issue-1' });
+    const issue2 = makeIssue({ id: 'issue-2' });
+
+    const client = makeMockClient([issue1, issue2]);
+    const poller = createErrorPoller(client, store, makeMockLogger(), 60_000);
+
+    await poller.pollNow();
+    expect(store.getByKind('error')).toHaveLength(2);
+
+    // issue-2 was resolved in PostHog, next poll only returns issue-1
+    (client.post as jest.Mock).mockResolvedValue({
+      ok: true,
+      data: { results: [issue1] },
+    });
+    await poller.pollNow();
+
+    expect(store.getByKind('error')).toHaveLength(1);
+    expect(
+      store.getAll().find((d) => d.id === 'error:issue-2'),
+    ).toBeUndefined();
+
+    poller.dispose();
+  });
+
   it('should post to /query/ with ErrorTrackingQuery kind', async () => {
     const store = new DiscoveryStore();
     const client = makeMockClient([]);

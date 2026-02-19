@@ -104,4 +104,87 @@ describe('DiscoveryStore', () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  describe('replaceByKind', () => {
+    it('should remove stale entries of the given kind', () => {
+      const store = new DiscoveryStore();
+      store.merge([
+        makeDiscovery({ id: 'err-1', kind: 'error' }),
+        makeDiscovery({ id: 'err-2', kind: 'error' }),
+      ]);
+
+      store.replaceByKind('error', [
+        makeDiscovery({ id: 'err-1', kind: 'error' }),
+      ]);
+
+      expect(store.count).toBe(1);
+      expect(store.getAll()[0]?.id).toBe('err-1');
+    });
+
+    it('should leave other kinds untouched', () => {
+      const store = new DiscoveryStore();
+      store.merge([
+        makeDiscovery({ id: 'err-1', kind: 'error' }),
+        makeDiscovery({ id: 'setup-1', kind: 'setup_issue' }),
+      ]);
+
+      store.replaceByKind('error', []);
+
+      expect(store.count).toBe(1);
+      expect(store.getAll()[0]?.id).toBe('setup-1');
+    });
+
+    it('should skip discoveries that do not match the kind', () => {
+      const store = new DiscoveryStore();
+
+      store.replaceByKind('error', [
+        makeDiscovery({ id: 'err-1', kind: 'error' }),
+        makeDiscovery({ id: 'setup-1', kind: 'setup_issue' }),
+      ]);
+
+      expect(store.count).toBe(1);
+      expect(store.getAll()[0]?.id).toBe('err-1');
+    });
+
+    it('should fire onDidChange', () => {
+      const store = new DiscoveryStore();
+      const listener = jest.fn();
+      store.onDidChange(listener);
+
+      store.replaceByKind('error', [makeDiscovery()]);
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove a single entry by id', () => {
+      const store = new DiscoveryStore();
+      store.merge([makeDiscovery({ id: 'a' }), makeDiscovery({ id: 'b' })]);
+
+      const removed = store.remove('a');
+
+      expect(removed).toBe(true);
+      expect(store.count).toBe(1);
+      expect(store.getAll()[0]?.id).toBe('b');
+    });
+
+    it('should return false for non-existent id', () => {
+      const store = new DiscoveryStore();
+      expect(store.remove('nope')).toBe(false);
+    });
+
+    it('should only fire onDidChange when something was removed', () => {
+      const store = new DiscoveryStore();
+      store.merge([makeDiscovery({ id: 'a' })]);
+
+      const listener = jest.fn();
+      store.onDidChange(listener);
+
+      store.remove('a');
+      store.remove('nonexistent');
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
 });

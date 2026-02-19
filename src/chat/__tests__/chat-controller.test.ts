@@ -106,6 +106,7 @@ function createController(
   overrides: {
     onEvent?: (e: AgentEvent) => void;
     onConsentRequest?: (r: ConsentRequest) => void;
+    onDiscoveryResolved?: (id: string) => void;
   } = {},
 ) {
   return new ChatController({
@@ -114,6 +115,7 @@ function createController(
     logger: { info: jest.fn(), error: jest.fn(), debug: jest.fn() },
     onEvent: overrides.onEvent ?? (() => {}),
     onConsentRequest: overrides.onConsentRequest ?? (() => {}),
+    onDiscoveryResolved: overrides.onDiscoveryResolved,
   });
 }
 
@@ -287,6 +289,38 @@ describe('ChatController', () => {
 
       // Should not throw
       controller.resolveConsent('nonexistent', { action: 'approve' });
+    });
+
+    it('should call onDiscoveryResolved when dismissDiscovery is approved', async () => {
+      const onDiscoveryResolved = jest.fn();
+
+      const provider = createMockProvider([
+        {
+          type: 'tool_calls',
+          calls: [
+            {
+              id: 'call-1',
+              name: 'dismissDiscovery',
+              arguments: { id: 'setup_issue:source_maps_not_configured' },
+            },
+          ],
+          usage: USAGE,
+        },
+        { type: 'text', content: 'Done, dismissed.', usage: USAGE },
+      ]);
+
+      const controller = createController(provider, {
+        onConsentRequest: (r) => {
+          controller.resolveConsent(r.callId, { action: 'approve' });
+        },
+        onDiscoveryResolved,
+      });
+
+      await controller.send('Fix and dismiss');
+
+      expect(onDiscoveryResolved).toHaveBeenCalledWith(
+        'setup_issue:source_maps_not_configured',
+      );
     });
   });
 

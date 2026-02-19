@@ -62,6 +62,7 @@ export type ChatProviderDeps = {
   getApiClient: () => PostHogApiClient | undefined;
   getWorkspaceInfo: () => WorkspaceInfo | undefined;
   chatHistory: ChatHistory;
+  onDiscoveryResolved?: (discoveryId: string) => void;
 };
 
 export class ChatViewProvider implements vscode.Disposable {
@@ -299,6 +300,7 @@ export class ChatViewProvider implements vscode.Disposable {
           args: request.args,
         });
       },
+      onDiscoveryResolved: this._deps.onDiscoveryResolved,
     });
 
     return this._controller;

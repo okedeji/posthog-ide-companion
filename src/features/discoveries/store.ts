@@ -40,6 +40,30 @@ export class DiscoveryStore implements vscode.Disposable {
     return newCount;
   }
 
+  replaceByKind(kind: DiscoveryKind, discoveries: Discovery[]): void {
+    for (const [id, d] of this.items) {
+      if (d.kind === kind) {
+        this.items.delete(id);
+      }
+    }
+
+    for (const d of discoveries) {
+      if (d.kind === kind) {
+        this.items.set(d.id, d);
+      }
+    }
+
+    this._onDidChange.fire();
+  }
+
+  remove(id: string): boolean {
+    const deleted = this.items.delete(id);
+    if (deleted) {
+      this._onDidChange.fire();
+    }
+    return deleted;
+  }
+
   clear(): void {
     if (this.items.size === 0) {
       return;
