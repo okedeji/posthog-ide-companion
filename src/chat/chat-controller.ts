@@ -39,6 +39,8 @@ import { UpdateExperimentTool } from '../ai/tools/update-experiment';
 import { CreateInsightTool } from '../ai/tools/create-insight';
 import { CreateDashboardTool } from '../ai/tools/create-dashboard';
 import { AddInsightToDashboardTool } from '../ai/tools/add-insight-to-dashboard';
+import { CreateSurveyTool } from '../ai/tools/create-survey';
+import { UpdateSurveyTool } from '../ai/tools/update-survey';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
 import type {
@@ -166,6 +168,8 @@ export class ChatController implements vscode.Disposable {
         new CreateInsightTool(apiClient),
         new CreateDashboardTool(apiClient),
         new AddInsightToDashboardTool(apiClient),
+        new CreateSurveyTool(apiClient),
+        new UpdateSurveyTool(apiClient),
       );
     }
 

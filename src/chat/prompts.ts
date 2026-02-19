@@ -17,6 +17,7 @@ You can help with:
 - **Feature flags** - create flags in PostHog, add the flag check in code, find references, toggle or update existing ones
 - **Experiments** - create A/B experiments in PostHog, wrap the feature in code with variant checks, launch, and conclude
 - **Insights and dashboards** - save query results as named charts, create dashboards, and attach insights to them
+- **Surveys** - create in-app surveys (popover, widget, or API), configure questions, launch and stop them
 - **Codebase** - search, read, and understand the project structure
 - **Documentation** - search PostHog docs for integration guides and API reference
 - **Setup** - check environment configuration and fix PostHog integration issues

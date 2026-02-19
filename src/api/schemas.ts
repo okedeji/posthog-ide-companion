@@ -164,6 +164,35 @@ export const DashboardSchema = z.object({
 
 export type Dashboard = z.infer<typeof DashboardSchema>;
 
+// Surveys — POST/PATCH /api/projects/{id}/surveys/
+
+export const SurveyQuestionSchema = z.object({
+  type: z.string(),
+  question: z.string(),
+  description: z.string().nullable().optional(),
+  choices: z.array(z.string()).optional(),
+  link: z.string().nullable().optional(),
+  id: z.string().optional(),
+});
+
+export const SurveySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  type: z.string(),
+  questions: z.array(SurveyQuestionSchema).optional(),
+  conditions: z.unknown().nullable().optional(),
+  start_date: z.string().nullable().optional(),
+  end_date: z.string().nullable().optional(),
+  archived: z.boolean().optional(),
+  linked_flag_id: z.number().nullable().optional(),
+  responses_limit: z.number().nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+export type Survey = z.infer<typeof SurveySchema>;
+export type SurveyQuestion = z.infer<typeof SurveyQuestionSchema>;
+
 // GET /api/users/@me/
 export const UserInfoSchema = z.object({
   distinct_id: z.string().optional(),
