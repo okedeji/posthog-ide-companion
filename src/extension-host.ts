@@ -290,6 +290,7 @@ export class ExtensionHost implements vscode.Disposable {
       this._cachedProvider = undefined;
       this.apiClient = undefined;
       this.discoveryStore.clear();
+      this.chatProvider.resetController();
 
       this.statusProvider.setProject(undefined);
       this.statusProvider.setAISelection(undefined);
@@ -350,6 +351,7 @@ export class ExtensionHost implements vscode.Disposable {
         const label = getModelLabel(aiSelection);
         this.statusProvider.setAISelection(aiSelection, label);
         if (hasApiKey(aiConfig, aiSelection.provider)) {
+          await this._refreshCachedProvider();
           const workspaceInfo = getStoredWorkspaceInfo(this.context);
           if (workspaceInfo) {
             this.statusProvider.setWorkspaceDetection(

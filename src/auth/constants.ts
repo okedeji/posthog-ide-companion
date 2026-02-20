@@ -20,6 +20,8 @@ export const OAUTH_SCOPES = [
   'dashboard:write',
   'survey:read',
   'survey:write',
+  'alert:read',
+  'alert:write',
   'error_tracking:read',
   'error_tracking:write',
   'session_recording:read',

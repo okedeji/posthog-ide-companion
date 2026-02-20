@@ -106,6 +106,11 @@ export class ChatViewProvider implements vscode.Disposable {
     setTimeout(() => panel.reveal(), 500);
   }
 
+  /** Dispose the current controller so the next message creates a fresh one. */
+  resetController(): void {
+    this._saveAndReset();
+  }
+
   loadDiscoveryContext(discovery: Discovery): void {
     this.open();
 
