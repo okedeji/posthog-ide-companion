@@ -31,6 +31,9 @@ import { PostHogApiClient } from './api/client';
 import { DiscoveryStore } from './features/discoveries/store';
 import { DiscoveriesProvider } from './ui/sidebar/discoveries-provider';
 import { createErrorPoller } from './features/discoveries/pollers/error-poller';
+import { createAlertPoller } from './features/discoveries/pollers/alert-poller';
+import { createExperimentPoller } from './features/discoveries/pollers/experiment-poller';
+import { createFlagPoller } from './features/discoveries/pollers/flag-poller';
 import { workspaceInfoToSetupDiscoveries } from './features/discoveries/scanners/setup-issues';
 import type { Poller } from './features/discoveries/poller';
 import type { LLMProvider } from './ai/provider';
@@ -47,6 +50,9 @@ export class ExtensionHost implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
 
   private activeErrorPoller: Poller<void> | undefined;
+  private activeAlertPoller: Poller<void> | undefined;
+  private activeExperimentPoller: Poller<void> | undefined;
+  private activeFlagPoller: Poller<void> | undefined;
   private mcpClient: PostHogMcpClient | undefined;
   private apiClient: PostHogApiClient | undefined;
 
@@ -138,6 +144,15 @@ export class ExtensionHost implements vscode.Disposable {
       vscode.commands.registerCommand('posthog.refreshDiscoveries', () => {
         if (this.activeErrorPoller) {
           void this.activeErrorPoller.pollNow();
+        }
+        if (this.activeAlertPoller) {
+          void this.activeAlertPoller.pollNow();
+        }
+        if (this.activeExperimentPoller) {
+          void this.activeExperimentPoller.pollNow();
+        }
+        if (this.activeFlagPoller) {
+          void this.activeFlagPoller.pollNow();
         }
       }),
       vscode.commands.registerCommand('posthog.openChat', () => {
@@ -490,7 +505,26 @@ export class ExtensionHost implements vscode.Disposable {
       this.discoveryStore,
       this.logger,
     );
+    this.activeAlertPoller = createAlertPoller(
+      client,
+      this.discoveryStore,
+      this.logger,
+    );
+    this.activeExperimentPoller = createExperimentPoller(
+      client,
+      this.discoveryStore,
+      this.logger,
+    );
+    this.activeFlagPoller = createFlagPoller(
+      client,
+      this.discoveryStore,
+      this.logger,
+    );
+
     this.activeErrorPoller.start();
+    this.activeAlertPoller.start();
+    this.activeExperimentPoller.start();
+    this.activeFlagPoller.start();
     this.logger.info('Discovery polling started');
   }
 
@@ -498,6 +532,18 @@ export class ExtensionHost implements vscode.Disposable {
     if (this.activeErrorPoller) {
       this.activeErrorPoller.dispose();
       this.activeErrorPoller = undefined;
+    }
+    if (this.activeAlertPoller) {
+      this.activeAlertPoller.dispose();
+      this.activeAlertPoller = undefined;
+    }
+    if (this.activeExperimentPoller) {
+      this.activeExperimentPoller.dispose();
+      this.activeExperimentPoller = undefined;
+    }
+    if (this.activeFlagPoller) {
+      this.activeFlagPoller.dispose();
+      this.activeFlagPoller = undefined;
     }
   }
 

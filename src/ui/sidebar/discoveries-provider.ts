@@ -23,8 +23,16 @@ const GROUP_CONFIG: readonly {
   label: string;
   icon: string;
 }[] = [
-  { kind: 'setup_issue', label: 'Setup Issues', icon: 'gear' },
+  { kind: 'firing_alert', label: 'Alerts', icon: 'bell' },
   { kind: 'error', label: 'Errors', icon: 'bug' },
+  {
+    kind: 'flag_rollback',
+    label: 'Flag Rollbacks',
+    icon: 'debug-reverse-continue',
+  },
+  { kind: 'experiment_result', label: 'Experiment Results', icon: 'beaker' },
+  { kind: 'stale_flag', label: 'Stale Flags', icon: 'history' },
+  { kind: 'setup_issue', label: 'Setup Issues', icon: 'gear' },
 ];
 
 const SEVERITY_STYLE: Record<string, { icon: string; color: string }> = {

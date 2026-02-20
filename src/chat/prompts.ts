@@ -2,8 +2,16 @@ import type {
   ErrorDiscovery,
   SetupIssueDiscovery,
   SetupIssueSource,
+  AlertDiscovery,
+  ExperimentDiscovery,
+  FlagDiscovery,
 } from '../features/discoveries/types';
-import type { ErrorTrackingIssue } from '../api/schemas';
+import type {
+  ErrorTrackingIssue,
+  Alert,
+  FeatureFlag,
+  Experiment,
+} from '../api/schemas';
 
 // Chat-specific additions to the system prompt. The foundation prompt (priority 0)
 // covers core behavior and tool usage guidelines. The tools section (priority 5)
@@ -248,6 +256,184 @@ export function buildSetupIssueDiscoveryContext(
     '4. **Dismiss** - once all fixes have been applied, call dismissDiscovery ' +
       `with id \`${discovery.id}\` to remove it from the discoveries panel.`,
   );
+
+  return lines.join('\n');
+}
+
+export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
+  const source = discovery.source as Alert;
+
+  const lines: string[] = [
+    `## Alert Firing: ${discovery.title}`,
+    '',
+    'This PostHog alert is currently in a FIRING state.',
+    '',
+  ];
+
+  const details: string[] = [];
+  details.push(`Alert ID: ${source.id}`);
+  details.push(`State: ${source.state}`);
+  if (source.condition) {
+    details.push(`Condition type: ${source.condition.type}`);
+    if (source.condition.threshold != null) {
+      details.push(`Threshold: ${source.condition.threshold}`);
+    }
+  }
+  if (source.last_checked_at) {
+    details.push(`Last checked: ${source.last_checked_at}`);
+  }
+  if (source.last_notified_at) {
+    details.push(`Last notified: ${source.last_notified_at}`);
+  }
+
+  for (const detail of details) {
+    lines.push(`- ${detail}`);
+  }
+
+  lines.push('');
+  lines.push('### Investigation steps');
+  lines.push('');
+  lines.push(
+    '1. **Check the insight** - use the PostHog MCP tools to look up the insight ' +
+      'associated with this alert and understand what metric is being tracked.',
+  );
+  lines.push(
+    '2. **Review recent data** - query the relevant events or trends to understand ' +
+      'why the threshold was crossed.',
+  );
+  lines.push(
+    '3. **Search the codebase** - if the alert relates to errors or specific features, ' +
+      'search the code for the relevant event names or functions.',
+  );
+  lines.push(
+    '4. **Explain and recommend** - explain what triggered the alert and suggest ' +
+      'actions: fix the root cause, adjust the threshold, or snooze the alert.',
+  );
+
+  return lines.join('\n');
+}
+
+export function buildExperimentDiscoveryContext(
+  discovery: ExperimentDiscovery,
+): string {
+  const source = discovery.source as Experiment;
+
+  const lines: string[] = [
+    `## Experiment Result: ${discovery.title}`,
+    '',
+    'This experiment has reached a conclusion.',
+    '',
+  ];
+
+  const details: string[] = [];
+  details.push(`Experiment ID: ${source.id}`);
+  details.push(`Feature flag key: \`${source.feature_flag_key}\``);
+  if (source.start_date) {
+    details.push(`Started: ${source.start_date}`);
+  }
+  if (source.end_date) {
+    details.push(`Ended: ${source.end_date}`);
+  }
+  if (source.conclusion) {
+    details.push(`Conclusion: ${source.conclusion}`);
+  }
+  if (source.conclusion_comment) {
+    details.push(`Comment: ${source.conclusion_comment}`);
+  }
+
+  const variants = source.parameters?.feature_flag_variants;
+  if (variants?.length) {
+    details.push(
+      `Variants: ${variants.map((v) => `${v.key} (${v.rollout_percentage}%)`).join(', ')}`,
+    );
+  }
+
+  for (const detail of details) {
+    lines.push(`- ${detail}`);
+  }
+
+  lines.push('');
+  lines.push('### Investigation steps');
+  lines.push('');
+  lines.push(
+    '1. **Review the experiment** - use the PostHog MCP tools to get full experiment ' +
+      'details and results data.',
+  );
+  lines.push(
+    `2. **Find flag usage in code** - search the codebase for the feature flag key ` +
+      `\`${source.feature_flag_key}\` to understand what the experiment controls.`,
+  );
+  lines.push(
+    '3. **Recommend next steps** - based on the conclusion, suggest whether to ' +
+      'ship the winning variant, roll back, or extend the experiment.',
+  );
+
+  return lines.join('\n');
+}
+
+export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
+  const source = discovery.source as FeatureFlag;
+  const isRollback = discovery.kind === 'flag_rollback';
+
+  const heading = isRollback
+    ? `## Flag Rolled Back: ${source.key}`
+    : `## Stale Flag: ${source.key}`;
+
+  const intro = isRollback
+    ? 'This feature flag was automatically rolled back. This usually means rollback conditions were triggered.'
+    : 'This feature flag has been at 100% rollout for over 30 days and may be ready for cleanup.';
+
+  const lines: string[] = [heading, '', intro, ''];
+
+  const details: string[] = [];
+  details.push(`Flag ID: ${source.id}`);
+  details.push(`Key: \`${source.key}\``);
+  if (source.name) {
+    details.push(`Name: ${source.name}`);
+  }
+  details.push(`Active: ${source.active}`);
+  if (source.created_at) {
+    details.push(`Created: ${source.created_at}`);
+  }
+  if (source.tags?.length) {
+    details.push(`Tags: ${source.tags.join(', ')}`);
+  }
+
+  for (const detail of details) {
+    lines.push(`- ${detail}`);
+  }
+
+  lines.push('');
+  lines.push('### Investigation steps');
+  lines.push('');
+  lines.push(
+    `1. **Find flag usage in code** - search the codebase for \`${source.key}\` ` +
+      'to find all places where this flag is checked.',
+  );
+
+  if (isRollback) {
+    lines.push(
+      '2. **Investigate the rollback** - use PostHog MCP tools to check the flag details ' +
+        'and understand what rollback conditions were set.',
+    );
+    lines.push(
+      '3. **Check for issues** - look at error tracking and relevant events around the time ' +
+        'of the rollback to understand what went wrong.',
+    );
+    lines.push(
+      '4. **Recommend action** - suggest whether to fix the underlying issue and re-enable, ' +
+        'or fully revert the feature.',
+    );
+  } else {
+    lines.push(
+      '2. **Assess removability** - determine if the flag check can be safely removed ' +
+        'by shipping the code path unconditionally.',
+    );
+    lines.push(
+      '3. **Propose cleanup** - if safe, use proposeEdit to remove the flag checks ' +
+        'and keep only the enabled code path.',
+    );
+  }
 
   return lines.join('\n');
 }

@@ -1,7 +1,17 @@
-import type { ErrorTrackingIssue } from '../../api/schemas';
+import type {
+  ErrorTrackingIssue,
+  Alert,
+  FeatureFlag,
+  Experiment,
+} from '../../api/schemas';
 
-export type DiscoveryKind = 'error' | 'setup_issue';
-// Future: | 'flag_alert' | 'anomaly'
+export type DiscoveryKind =
+  | 'error'
+  | 'setup_issue'
+  | 'firing_alert'
+  | 'experiment_result'
+  | 'stale_flag'
+  | 'flag_rollback';
 
 export type DiscoverySeverity = 'info' | 'warning' | 'critical';
 
@@ -25,3 +35,7 @@ export type SetupIssueSource = {
 };
 
 export type SetupIssueDiscovery = Discovery<SetupIssueSource>;
+
+export type AlertDiscovery = Discovery<Alert>;
+export type ExperimentDiscovery = Discovery<Experiment>;
+export type FlagDiscovery = Discovery<FeatureFlag>;

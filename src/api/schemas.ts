@@ -101,6 +101,14 @@ export const FeatureFlagSchema = z.object({
   filters: FeatureFlagFiltersSchema.optional(),
   tags: z.array(z.string()).optional(),
   created_at: z.string().optional(),
+  performed_rollback: z.boolean().optional(),
+  rollback_conditions: z.unknown().nullable().optional(),
+  is_simple_flag: z.boolean().optional(),
+});
+
+export const FeatureFlagListSchema = z.object({
+  count: z.number().optional(),
+  results: z.array(FeatureFlagSchema),
 });
 
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
@@ -133,6 +141,11 @@ export const ExperimentSchema = z.object({
     .nullable()
     .optional(),
   created_at: z.string().optional(),
+});
+
+export const ExperimentListSchema = z.object({
+  count: z.number().optional(),
+  results: z.array(ExperimentSchema),
 });
 
 export type Experiment = z.infer<typeof ExperimentSchema>;
@@ -192,6 +205,31 @@ export const SurveySchema = z.object({
 
 export type Survey = z.infer<typeof SurveySchema>;
 export type SurveyQuestion = z.infer<typeof SurveyQuestionSchema>;
+
+// Alerts — GET /api/projects/{id}/alerts/
+
+export const AlertSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  state: z.enum(['firing', 'not_firing', 'snoozed']),
+  enabled: z.boolean(),
+  condition: z
+    .object({
+      type: z.string(),
+      threshold: z.number().optional(),
+    })
+    .optional(),
+  insight: z.number().nullable().optional(),
+  last_checked_at: z.string().nullable().optional(),
+  last_notified_at: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+export const AlertListSchema = z.object({
+  results: z.array(AlertSchema),
+});
+
+export type Alert = z.infer<typeof AlertSchema>;
 
 // GET /api/users/@me/
 export const UserInfoSchema = z.object({

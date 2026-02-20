@@ -16,6 +16,9 @@ import {
   CHAT_INSTRUCTIONS,
   buildErrorDiscoveryContext,
   buildSetupIssueDiscoveryContext,
+  buildAlertDiscoveryContext,
+  buildExperimentDiscoveryContext,
+  buildFlagDiscoveryContext,
 } from './prompts';
 import type { LLMProvider } from '../ai/provider';
 import type {
@@ -49,6 +52,9 @@ import type {
   Discovery,
   ErrorDiscovery,
   SetupIssueDiscovery,
+  AlertDiscovery,
+  ExperimentDiscovery,
+  FlagDiscovery,
 } from '../features/discoveries/types';
 
 export type ConsentRequest = {
@@ -281,6 +287,13 @@ function buildDiscoveryContext(discovery: Discovery): string {
       return buildErrorDiscoveryContext(discovery as ErrorDiscovery);
     case 'setup_issue':
       return buildSetupIssueDiscoveryContext(discovery as SetupIssueDiscovery);
+    case 'firing_alert':
+      return buildAlertDiscoveryContext(discovery as AlertDiscovery);
+    case 'experiment_result':
+      return buildExperimentDiscoveryContext(discovery as ExperimentDiscovery);
+    case 'stale_flag':
+    case 'flag_rollback':
+      return buildFlagDiscoveryContext(discovery as FlagDiscovery);
     default:
       return `## Context: ${discovery.title}\n\n${discovery.description}`;
   }

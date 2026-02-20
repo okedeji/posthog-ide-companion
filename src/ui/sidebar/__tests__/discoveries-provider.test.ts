@@ -62,7 +62,7 @@ describe('DiscoveriesProvider', () => {
       expect(isGroup(roots[0]!)).toBe(true);
     });
 
-    it('should show setup_issue group before error group', () => {
+    it('should show error group before setup_issue group', () => {
       const store = new DiscoveryStore();
       store.merge([makeError(), makeSetupIssue()]);
 
@@ -71,10 +71,10 @@ describe('DiscoveriesProvider', () => {
 
       expect(roots).toHaveLength(2);
       expect(isGroup(roots[0]!) && roots[0]!).toMatchObject({
-        kind: 'setup_issue',
+        kind: 'error',
       });
       expect(isGroup(roots[1]!) && roots[1]!).toMatchObject({
-        kind: 'error',
+        kind: 'setup_issue',
       });
     });
 
