@@ -194,6 +194,48 @@ describe('UpdateExperimentTool', () => {
     expect(result).toContain('Experiment not found');
   });
 
+  it('calls onExperimentUpdated with concluded=true when experiment has end_date', async () => {
+    const concludedExp = {
+      ...DRAFT_EXPERIMENT,
+      end_date: '2024-03-30T00:00:00Z',
+      conclusion: 'won',
+    };
+    const client = makeClient({
+      patch: jest.fn().mockResolvedValue({ ok: true, data: concludedExp }),
+    } as Partial<PostHogApiClient>);
+    const onExperimentUpdated = jest.fn();
+    const tool = new UpdateExperimentTool(client, onExperimentUpdated);
+
+    await tool.execute(makeCall({ id: 7, conclude: { conclusion: 'won' } }));
+
+    expect(onExperimentUpdated).toHaveBeenCalledWith(7, true);
+  });
+
+  it('calls onExperimentUpdated with concluded=false when experiment has no end_date', async () => {
+    const client = makeClient();
+    const onExperimentUpdated = jest.fn();
+    const tool = new UpdateExperimentTool(client, onExperimentUpdated);
+
+    await tool.execute(makeCall({ id: 7, name: 'Renamed' }));
+
+    expect(onExperimentUpdated).toHaveBeenCalledWith(7, false);
+  });
+
+  it('does not call onExperimentUpdated when PATCH fails', async () => {
+    const client = makeClient({
+      patch: jest.fn().mockResolvedValue({
+        ok: false,
+        error: { code: 'not_found', message: 'Not found' },
+      }),
+    } as Partial<PostHogApiClient>);
+    const onExperimentUpdated = jest.fn();
+    const tool = new UpdateExperimentTool(client, onExperimentUpdated);
+
+    await tool.execute(makeCall({ id: 7, name: 'New Name' }));
+
+    expect(onExperimentUpdated).not.toHaveBeenCalled();
+  });
+
   it('has requiresConsent set', () => {
     const tool = new UpdateExperimentTool(makeClient());
     expect(tool.definition.requiresConsent).toBe(true);

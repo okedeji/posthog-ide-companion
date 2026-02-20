@@ -169,6 +169,12 @@ export class ExtensionHost implements vscode.Disposable {
           this.chatProvider.loadDiscoveryContext(discovery);
         },
       ),
+      vscode.commands.registerCommand(
+        'posthog.dismissDiscovery',
+        (discovery: Discovery) => {
+          this.discoveryStore.remove(discovery.id);
+        },
+      ),
     );
   }
 

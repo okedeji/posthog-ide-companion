@@ -179,17 +179,34 @@ export class ChatController implements vscode.Disposable {
     if (apiClient) {
       tools.push(
         new CreateFeatureFlagTool(apiClient),
-        new UpdateFeatureFlagTool(apiClient),
+        new UpdateFeatureFlagTool(apiClient, (flagId, active) => {
+          if (!active) {
+            this._options.onDiscoveryResolved?.(`stale_flag:${flagId}`);
+            this._options.onDiscoveryResolved?.(`flag_rollback:${flagId}`);
+          }
+        }),
         new CreateExperimentTool(apiClient),
-        new UpdateExperimentTool(apiClient),
+        new UpdateExperimentTool(apiClient, (experimentId, concluded) => {
+          if (concluded) {
+            this._options.onDiscoveryResolved?.(
+              `experiment_result:${experimentId}`,
+            );
+          }
+        }),
         new CreateInsightTool(apiClient),
         new CreateDashboardTool(apiClient),
         new AddInsightToDashboardTool(apiClient),
         new CreateSurveyTool(apiClient),
         new UpdateSurveyTool(apiClient),
         new CreateAlertTool(apiClient),
-        new UpdateAlertTool(apiClient),
-        new DeleteAlertTool(apiClient),
+        new UpdateAlertTool(apiClient, (alertId, enabled) => {
+          if (!enabled) {
+            this._options.onDiscoveryResolved?.(`firing_alert:${alertId}`);
+          }
+        }),
+        new DeleteAlertTool(apiClient, (alertId) => {
+          this._options.onDiscoveryResolved?.(`firing_alert:${alertId}`);
+        }),
         new UpdateErrorStatusTool(apiClient, (errorId, status) => {
           if (status !== 'active') {
             this._options.onDiscoveryResolved?.(`error:${errorId}`);

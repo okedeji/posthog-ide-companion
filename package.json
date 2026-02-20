@@ -114,6 +114,11 @@
       {
         "command": "posthog.investigateDiscovery",
         "title": "PostHog: Investigate"
+      },
+      {
+        "command": "posthog.dismissDiscovery",
+        "title": "PostHog: Dismiss Discovery",
+        "icon": "$(close)"
       }
     ],
     "menus": {
@@ -154,9 +159,20 @@
           "group": "navigation@2"
         }
       ],
+      "view/item/context": [
+        {
+          "command": "posthog.dismissDiscovery",
+          "when": "view == posthog.discoveries && !(viewItem =~ /^group:/)",
+          "group": "inline"
+        }
+      ],
       "commandPalette": [
         {
           "command": "posthog.investigateDiscovery",
+          "when": "false"
+        },
+        {
+          "command": "posthog.dismissDiscovery",
           "when": "false"
         }
       ]

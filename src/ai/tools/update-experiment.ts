@@ -65,13 +65,21 @@ const DEFINITION: ToolDefinition = {
   requiresConsent: true,
 };
 
+export type ExperimentUpdatedCallback = (
+  experimentId: number,
+  concluded: boolean,
+) => void;
+
 export class UpdateExperimentTool implements Tool {
   readonly definition = DEFINITION;
   readonly category = 'posthog' as const;
   readonly promptSummary =
     'launch, conclude, or rename an existing PostHog experiment';
 
-  constructor(private readonly _client: PostHogApiClient) {}
+  constructor(
+    private readonly _client: PostHogApiClient,
+    private readonly _onExperimentUpdated?: ExperimentUpdatedCallback,
+  ) {}
 
   async execute(call: ToolCall): Promise<string> {
     const id = Number(call.arguments['id']);
@@ -130,6 +138,8 @@ export class UpdateExperimentTool implements Tool {
     }
 
     const exp = result.data;
+    this._onExperimentUpdated?.(exp.id, exp.end_date != null);
+
     const url = this._client.getProjectUrl(`/experiments/${exp.id}`);
 
     const status = exp.end_date

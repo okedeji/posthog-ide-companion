@@ -23,12 +23,17 @@ const DEFINITION: ToolDefinition = {
   requiresConsent: true,
 };
 
+export type AlertDeletedCallback = (alertId: number) => void;
+
 export class DeleteAlertTool implements Tool {
   readonly definition = DEFINITION;
   readonly category = 'posthog' as const;
   readonly promptSummary = 'permanently delete a PostHog alert';
 
-  constructor(private readonly _client: PostHogApiClient) {}
+  constructor(
+    private readonly _client: PostHogApiClient,
+    private readonly _onAlertDeleted?: AlertDeletedCallback,
+  ) {}
 
   async execute(call: ToolCall): Promise<string> {
     const id = Number(call.arguments['id']);
@@ -49,6 +54,8 @@ export class DeleteAlertTool implements Tool {
     if (!result.ok) {
       return `Error deleting alert: ${result.error.message}`;
     }
+
+    this._onAlertDeleted?.(id);
 
     return [`Alert deleted.`, `  ID: ${id}`, `  Name: ${alertName}`].join('\n');
   }

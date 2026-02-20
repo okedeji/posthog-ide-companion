@@ -75,13 +75,18 @@ const DEFINITION: ToolDefinition = {
   requiresConsent: true,
 };
 
+export type FlagUpdatedCallback = (flagId: number, active: boolean) => void;
+
 export class UpdateFeatureFlagTool implements Tool {
   readonly definition = DEFINITION;
   readonly category = 'posthog' as const;
   readonly promptSummary =
     'toggle, ramp, retarget, or rename an existing PostHog feature flag';
 
-  constructor(private readonly _client: PostHogApiClient) {}
+  constructor(
+    private readonly _client: PostHogApiClient,
+    private readonly _onFlagUpdated?: FlagUpdatedCallback,
+  ) {}
 
   async execute(call: ToolCall): Promise<string> {
     const id = Number(call.arguments['id']);
@@ -175,6 +180,8 @@ export class UpdateFeatureFlagTool implements Tool {
     }
 
     const flag = result.data;
+    this._onFlagUpdated?.(flag.id, flag.active);
+
     const url = this._client.getProjectUrl(`/feature_flags/${flag.id}`);
     const rolloutNow =
       flag.filters?.groups?.[0]?.rollout_percentage ?? 'unchanged';

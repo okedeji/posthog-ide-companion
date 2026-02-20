@@ -268,6 +268,31 @@ describe('UpdateFeatureFlagTool', () => {
     expect(result).toContain('Permission denied');
   });
 
+  it('calls onFlagUpdated on successful PATCH', async () => {
+    const client = makeClient();
+    const onFlagUpdated = jest.fn();
+    const tool = new UpdateFeatureFlagTool(client, onFlagUpdated);
+
+    await tool.execute(makeCall({ id: 42, active: false }));
+
+    expect(onFlagUpdated).toHaveBeenCalledWith(42, false);
+  });
+
+  it('does not call onFlagUpdated when PATCH fails', async () => {
+    const client = makeClient({
+      patch: jest.fn().mockResolvedValue({
+        ok: false,
+        error: { code: 'unauthorized', message: 'No' },
+      }),
+    } as Partial<PostHogApiClient>);
+    const onFlagUpdated = jest.fn();
+    const tool = new UpdateFeatureFlagTool(client, onFlagUpdated);
+
+    await tool.execute(makeCall({ id: 42, active: false }));
+
+    expect(onFlagUpdated).not.toHaveBeenCalled();
+  });
+
   it('has requiresConsent set', () => {
     const tool = new UpdateFeatureFlagTool(makeClient());
     expect(tool.definition.requiresConsent).toBe(true);

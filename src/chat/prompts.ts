@@ -277,8 +277,14 @@ export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
   details.push(`State: ${source.state}`);
   if (source.condition) {
     details.push(`Condition type: ${source.condition.type}`);
-    if (source.condition.threshold != null) {
-      details.push(`Threshold: ${source.condition.threshold}`);
+  }
+  if (source.threshold?.configuration?.bounds) {
+    const bounds = source.threshold.configuration.bounds;
+    if (bounds.upper != null) {
+      details.push(`Upper threshold: ${bounds.upper}`);
+    }
+    if (bounds.lower != null) {
+      details.push(`Lower threshold: ${bounds.lower}`);
     }
   }
   if (source.last_checked_at) {
@@ -310,6 +316,10 @@ export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
   lines.push(
     '4. **Explain and recommend** - explain what triggered the alert and suggest ' +
       'actions: fix the root cause, adjust the threshold, or snooze the alert.',
+  );
+  lines.push(
+    `5. **Resolve** - once the issue is addressed, use updateAlert to disable or snooze the alert ` +
+      `(ID: ${source.id}), or deleteAlert to remove it. This will clear it from the discoveries panel.`,
   );
 
   return lines.join('\n');
@@ -369,6 +379,10 @@ export function buildExperimentDiscoveryContext(
     '3. **Recommend next steps** - based on the conclusion, suggest whether to ' +
       'ship the winning variant, roll back, or extend the experiment.',
   );
+  lines.push(
+    `4. **Resolve** - after shipping or rolling back, use updateExperiment to conclude the experiment ` +
+      `(ID: ${source.id}). This will clear it from the discoveries panel.`,
+  );
 
   return lines.join('\n');
 }
@@ -426,6 +440,10 @@ export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
       '4. **Recommend action** - suggest whether to fix the underlying issue and re-enable, ' +
         'or fully revert the feature.',
     );
+    lines.push(
+      `5. **Resolve** - once reverted or fixed, use updateFeatureFlag to deactivate the flag ` +
+        `(ID: ${source.id}). This will clear it from the discoveries panel.`,
+    );
   } else {
     lines.push(
       '2. **Assess removability** - determine if the flag check can be safely removed ' +
@@ -434,6 +452,10 @@ export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
     lines.push(
       '3. **Propose cleanup** - if safe, use proposeEdit to remove the flag checks ' +
         'and keep only the enabled code path.',
+    );
+    lines.push(
+      `4. **Resolve** - after cleanup, use updateFeatureFlag to deactivate the flag ` +
+        `(ID: ${source.id}). This will clear it from the discoveries panel.`,
     );
   }
 

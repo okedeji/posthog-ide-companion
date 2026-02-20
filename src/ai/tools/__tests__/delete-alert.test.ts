@@ -90,4 +90,29 @@ describe('DeleteAlertTool', () => {
       .invocationCallOrder[0]!;
     expect(getCalls).toBeLessThan(deleteCalls);
   });
+
+  it('calls onAlertDeleted on successful delete', async () => {
+    const client = makeClient();
+    const onAlertDeleted = jest.fn();
+    const tool = new DeleteAlertTool(client, onAlertDeleted);
+
+    await tool.execute(makeCall({ id: 1 }));
+
+    expect(onAlertDeleted).toHaveBeenCalledWith(1);
+  });
+
+  it('does not call onAlertDeleted when delete fails', async () => {
+    const client = makeClient({
+      delete: jest.fn().mockResolvedValue({
+        ok: false,
+        error: { code: 'unauthorized', message: 'No' },
+      }),
+    });
+    const onAlertDeleted = jest.fn();
+    const tool = new DeleteAlertTool(client, onAlertDeleted);
+
+    await tool.execute(makeCall({ id: 1 }));
+
+    expect(onAlertDeleted).not.toHaveBeenCalled();
+  });
 });

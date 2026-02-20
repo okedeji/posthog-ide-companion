@@ -201,4 +201,34 @@ describe('UpdateAlertTool', () => {
     const result = await tool.execute(makeCall({ id: 1, upper_bound: 200 }));
     expect(result).toMatch(/error fetching alert/i);
   });
+
+  it('calls onAlertUpdated on successful PATCH', async () => {
+    const client = makeClient({
+      patch: jest.fn().mockResolvedValue({
+        ok: true,
+        data: { ...MOCK_ALERT, enabled: false },
+      }),
+    });
+    const onAlertUpdated = jest.fn();
+    const tool = new UpdateAlertTool(client, onAlertUpdated);
+
+    await tool.execute(makeCall({ id: 1, enabled: false }));
+
+    expect(onAlertUpdated).toHaveBeenCalledWith(1, false);
+  });
+
+  it('does not call onAlertUpdated when PATCH fails', async () => {
+    const client = makeClient({
+      patch: jest.fn().mockResolvedValue({
+        ok: false,
+        error: { code: 'not_found', message: 'Alert not found' },
+      }),
+    });
+    const onAlertUpdated = jest.fn();
+    const tool = new UpdateAlertTool(client, onAlertUpdated);
+
+    await tool.execute(makeCall({ id: 1, enabled: false }));
+
+    expect(onAlertUpdated).not.toHaveBeenCalled();
+  });
 });

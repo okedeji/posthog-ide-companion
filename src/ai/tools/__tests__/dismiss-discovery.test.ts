@@ -40,13 +40,27 @@ describe('DismissDiscoveryTool', () => {
     expect(onResolved).not.toHaveBeenCalled();
   });
 
-  it('rejects non-setup_issue ids', async () => {
+  it('dismisses integration suggestion discoveries', async () => {
+    const onResolved = jest.fn();
+    const tool = new DismissDiscoveryTool(onResolved);
+
+    const result = await tool.execute(
+      makeCall({ id: 'integration_suggestion:src/pages/checkout.tsx' }),
+    );
+
+    expect(result).toContain('Discovery dismissed');
+    expect(onResolved).toHaveBeenCalledWith(
+      'integration_suggestion:src/pages/checkout.tsx',
+    );
+  });
+
+  it('rejects non-dismissable ids', async () => {
     const onResolved = jest.fn();
     const tool = new DismissDiscoveryTool(onResolved);
 
     const result = await tool.execute(makeCall({ id: 'error:abc-123' }));
 
-    expect(result).toMatch(/only setup issue/i);
+    expect(result).toMatch(/only setup issues and integration suggestions/i);
     expect(onResolved).not.toHaveBeenCalled();
   });
 

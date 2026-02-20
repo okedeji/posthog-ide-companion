@@ -70,13 +70,18 @@ const DEFINITION: ToolDefinition = {
   requiresConsent: true,
 };
 
+export type AlertUpdatedCallback = (alertId: number, enabled: boolean) => void;
+
 export class UpdateAlertTool implements Tool {
   readonly definition = DEFINITION;
   readonly category = 'posthog' as const;
   readonly promptSummary =
     'enable, disable, snooze, or reconfigure an existing PostHog alert';
 
-  constructor(private readonly _client: PostHogApiClient) {}
+  constructor(
+    private readonly _client: PostHogApiClient,
+    private readonly _onAlertUpdated?: AlertUpdatedCallback,
+  ) {}
 
   async execute(call: ToolCall): Promise<string> {
     const id = Number(call.arguments['id']);
@@ -187,6 +192,8 @@ export class UpdateAlertTool implements Tool {
     }
 
     const alert = result.data;
+    this._onAlertUpdated?.(alert.id, alert.enabled);
+
     const lines = [
       `Alert updated.`,
       `  Name: ${alert.name}`,
