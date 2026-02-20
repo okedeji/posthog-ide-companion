@@ -57,6 +57,17 @@ export const window = {
   ),
 };
 
+export const languages = {
+  getDiagnostics: jest.fn(() => []),
+  onDidChangeDiagnostics: jest.fn(
+    (listener: (e: { uris: Uri[] }) => void) => {
+      // Fire immediately by default so tests don't hang on the timeout
+      setTimeout(() => listener({ uris: [] }), 0);
+      return { dispose: jest.fn() };
+    },
+  ),
+};
+
 export const workspace = {
   getConfiguration: jest.fn(() => ({
     get: jest.fn(() => undefined),
@@ -83,6 +94,13 @@ export const commands = {
 export const env = {
   openExternal: jest.fn(async () => true),
 };
+
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
 
 export enum ViewColumn {
   Active = -1,

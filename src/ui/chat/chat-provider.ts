@@ -251,13 +251,43 @@ export class ChatViewProvider implements vscode.Disposable {
   }
 
   private async _handleSend(text: string): Promise<void> {
+    if (!this._deps.getProvider()) {
+      this._postMessage({
+        type: 'error',
+        message:
+          'Not signed in. Use "PostHog: Sign In" from the Command Palette.',
+      });
+      this._postHistory();
+      this._postState();
+      return;
+    }
+
+    if (!this._deps.getWorkspaceRoot()) {
+      this._postMessage({
+        type: 'error',
+        message: 'No workspace folder open.',
+      });
+      this._postHistory();
+      this._postState();
+      return;
+    }
+
+    if (!this._deps.getMcpClient()) {
+      this._postMessage({
+        type: 'error',
+        message: 'Connecting to PostHog... Please try again in a moment.',
+      });
+      this._postHistory();
+      this._postState();
+      return;
+    }
+
     const controller = this._ensureController();
     if (!controller) {
-      const message = !this._deps.getProvider()
-        ? 'Not signed in. Use "PostHog: Sign In" from the Command Palette.'
-        : 'No workspace folder open.';
-      this._postMessage({ type: 'error', message });
-      // Clear the optimistic user message and loading state the webview added
+      this._postMessage({
+        type: 'error',
+        message: 'Failed to start chat session.',
+      });
       this._postHistory();
       this._postState();
       return;

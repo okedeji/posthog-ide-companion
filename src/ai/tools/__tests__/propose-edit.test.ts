@@ -22,6 +22,12 @@ describe('ProposeEditTool', () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pe-test-'));
     approveAll = jest.fn(async () => ({ action: 'approve' as const }));
     rejectAll = jest.fn(async () => ({ action: 'reject' as const }));
+
+    // Default: no diagnostics, no event (getDiagnosticsAfterWrite hits the timeout)
+    (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([]);
+    (vscode.languages.onDidChangeDiagnostics as jest.Mock).mockImplementation(
+      () => ({ dispose: jest.fn() }),
+    );
   });
 
   afterEach(async () => {
@@ -168,6 +174,109 @@ describe('ProposeEditTool', () => {
       );
 
       expect(result).toContain('file already exists');
+    });
+  });
+
+  describe('diagnostics after write', () => {
+    it('should include diagnostics in result when errors are detected', async () => {
+      await fs.writeFile(path.join(tmpDir, 'buggy.ts'), 'const x = 1;\n');
+
+      const mockDiagnostics = [
+        {
+          severity: vscode.DiagnosticSeverity.Error,
+          range: { start: { line: 0, character: 6 } },
+          message: "Type 'string' is not assignable to type 'number'.",
+          source: 'ts',
+        },
+      ];
+
+      (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue(
+        mockDiagnostics,
+      );
+      (vscode.languages.onDidChangeDiagnostics as jest.Mock).mockImplementation(
+        (listener: (e: { uris: { fsPath: string }[] }) => void) => {
+          // Simulate language server firing diagnostics event
+          setTimeout(
+            () =>
+              listener({
+                uris: [{ fsPath: path.join(tmpDir, 'buggy.ts') }],
+              }),
+            10,
+          );
+          return { dispose: jest.fn() };
+        },
+      );
+
+      const tool = new ProposeEditTool(tmpDir, approveAll);
+      const result = await tool.execute(
+        makeCall({
+          path: 'buggy.ts',
+          oldContent: 'const x = 1;',
+          newContent: 'const x: number = "oops";',
+          description: 'Introduce a type error',
+        }),
+      );
+
+      expect(result).toContain('Edit applied to buggy.ts');
+      expect(result).toContain('Diagnostics detected');
+      expect(result).toContain("Type 'string' is not assignable");
+      expect(result).toContain('Line 1');
+      expect(result).toContain('[ts]');
+    });
+
+    it('should not include diagnostics when file is clean', async () => {
+      await fs.writeFile(path.join(tmpDir, 'clean.ts'), 'const x = 1;\n');
+
+      (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([]);
+
+      const tool = new ProposeEditTool(tmpDir, approveAll);
+      const result = await tool.execute(
+        makeCall({
+          path: 'clean.ts',
+          oldContent: 'const x = 1;',
+          newContent: 'const x = 2;',
+          description: 'Update value',
+        }),
+      );
+
+      expect(result).toBe('Edit applied to clean.ts: Update value');
+      expect(result).not.toContain('Diagnostics');
+    });
+
+    it('should filter out hints and info-level diagnostics', async () => {
+      await fs.writeFile(path.join(tmpDir, 'hints.ts'), 'const x = 1;\n');
+
+      const mockDiagnostics = [
+        {
+          severity: vscode.DiagnosticSeverity.Hint,
+          range: { start: { line: 0, character: 0 } },
+          message: 'Unused variable',
+          source: 'ts',
+        },
+        {
+          severity: vscode.DiagnosticSeverity.Information,
+          range: { start: { line: 0, character: 0 } },
+          message: 'Consider using const',
+          source: 'eslint',
+        },
+      ];
+
+      (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue(
+        mockDiagnostics,
+      );
+
+      const tool = new ProposeEditTool(tmpDir, approveAll);
+      const result = await tool.execute(
+        makeCall({
+          path: 'hints.ts',
+          oldContent: 'const x = 1;',
+          newContent: 'const x = 2;',
+          description: 'Update value',
+        }),
+      );
+
+      expect(result).toBe('Edit applied to hints.ts: Update value');
+      expect(result).not.toContain('Diagnostics');
     });
   });
 

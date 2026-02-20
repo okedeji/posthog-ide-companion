@@ -72,7 +72,7 @@ function createDeps(
     getProvider: () =>
       createMockProvider([{ type: 'text', content: 'Hello!', usage: USAGE }]),
     getWorkspaceRoot: () => '/tmp/test-workspace',
-    getMcpClient: () => undefined,
+    getMcpClient: () => ({ tools: [], callTool: jest.fn() }) as never,
     getApiClient: () => undefined,
     getWorkspaceInfo: () => undefined,
     chatHistory: new ChatHistory(createMockMemento() as never),
@@ -205,6 +205,26 @@ describe('ChatViewProvider', () => {
         (c: unknown[]) => (c[0] as Record<string, unknown>).type === 'error',
       );
       expect(errorMsg).toBeDefined();
+    });
+
+    it('should post error when MCP is not yet connected', async () => {
+      const { panel, send } = setupProvider({
+        getMcpClient: () => undefined,
+      });
+
+      send({ type: 'send', text: 'Hello' });
+      await new Promise((r) => setTimeout(r, 50));
+
+      const calls = (panel.webview.postMessage as jest.Mock).mock.calls.map(
+        (c: unknown[]) => c[0] as Record<string, unknown>,
+      );
+
+      const errorMsg = calls.find((m) => m.type === 'error');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg?.message).toContain('Connecting to PostHog');
+
+      const stateMsg = calls.find((m) => m.type === 'state');
+      expect(stateMsg).toEqual({ type: 'state', isProcessing: false });
     });
 
     it('should handle reset', async () => {

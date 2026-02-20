@@ -240,13 +240,14 @@ export class ExtensionHost implements vscode.Disposable {
 
   private async connectMcp(apiKey: string, projectId: number): Promise<void> {
     this.disconnectMcp();
+    const client = new PostHogMcpClient({ apiKey, projectId });
     try {
-      this.mcpClient = new PostHogMcpClient({ apiKey, projectId });
-      await this.mcpClient.connect();
-      this.logger.info(`MCP connected (${this.mcpClient.tools.length} tools)`);
+      await client.connect();
+      this.mcpClient = client;
+      this.logger.info(`MCP connected (${client.tools.length} tools)`);
     } catch (err) {
       this.logger.error('MCP connection failed (non-fatal)', err);
-      this.mcpClient = undefined;
+      client.dispose();
     }
   }
 

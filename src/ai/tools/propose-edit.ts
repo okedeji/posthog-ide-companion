@@ -159,6 +159,11 @@ export class ProposeEditTool implements Tool {
       await fs.mkdir(path.dirname(resolved), { recursive: true });
       await fs.writeFile(resolved, proposedContent, 'utf-8');
       closeDiffTab(tempFile);
+
+      const diagnostics = await getDiagnosticsAfterWrite(resolved);
+      if (diagnostics) {
+        return `Edit applied to ${filePath}: ${description}\n\n${diagnostics}`;
+      }
       return `Edit applied to ${filePath}: ${description}`;
     } catch (err) {
       return `Error writing file: ${err instanceof Error ? err.message : 'unknown error'}`;
@@ -240,6 +245,51 @@ async function writeTempFile(
   );
   await fs.writeFile(tempFile, content, 'utf-8');
   return tempFile;
+}
+
+async function getDiagnosticsAfterWrite(
+  filePath: string,
+): Promise<string | undefined> {
+  const uri = vscode.Uri.file(filePath);
+
+  // Wait for language services to report back, usually <500ms for open files
+  await new Promise<void>((resolve) => {
+    let listener: vscode.Disposable;
+    const timeout = setTimeout(() => {
+      listener.dispose();
+      resolve();
+    }, 1500);
+
+    listener = vscode.languages.onDidChangeDiagnostics((e) => {
+      if (e.uris.some((u) => u.fsPath === uri.fsPath)) {
+        clearTimeout(timeout);
+        listener.dispose();
+        resolve();
+      }
+    });
+  });
+
+  const diagnostics = vscode.languages
+    .getDiagnostics(uri)
+    .filter(
+      (d) =>
+        d.severity === vscode.DiagnosticSeverity.Error ||
+        d.severity === vscode.DiagnosticSeverity.Warning,
+    );
+
+  if (diagnostics.length === 0) {
+    return undefined;
+  }
+
+  const lines = diagnostics.map((d) => {
+    const severity =
+      d.severity === vscode.DiagnosticSeverity.Error ? 'error' : 'warning';
+    const line = d.range.start.line + 1;
+    const source = d.source ? ` [${d.source}]` : '';
+    return `  Line ${line}: ${severity}: ${d.message}${source}`;
+  });
+
+  return `Diagnostics detected after writing the file:\n${lines.join('\n')}\n\nPlease review and fix these issues.`;
 }
 
 function closeDiffTab(tempFilePath: string): void {
