@@ -253,11 +253,13 @@ export class ChatViewProvider implements vscode.Disposable {
   private async _handleSend(text: string): Promise<void> {
     const controller = this._ensureController();
     if (!controller) {
-      this._postMessage({
-        type: 'error',
-        message:
-          'AI provider not configured. Use "PostHog: Configure AI" from the Command Palette.',
-      });
+      const message = !this._deps.getProvider()
+        ? 'Not signed in. Use "PostHog: Sign In" from the Command Palette.'
+        : 'No workspace folder open.';
+      this._postMessage({ type: 'error', message });
+      // Clear the optimistic user message and loading state the webview added
+      this._postHistory();
+      this._postState();
       return;
     }
 

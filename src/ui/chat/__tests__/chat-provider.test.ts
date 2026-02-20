@@ -169,7 +169,7 @@ describe('ChatViewProvider', () => {
       expect(calls).toContain('state');
     });
 
-    it('should post error when provider is not configured', async () => {
+    it('should post error and clear loading state when provider is not configured', async () => {
       const { panel, send } = setupProvider({
         getProvider: () => undefined,
       });
@@ -177,13 +177,20 @@ describe('ChatViewProvider', () => {
       send({ type: 'send', text: 'Hello' });
       await new Promise((r) => setTimeout(r, 50));
 
-      const errorMsg = (panel.webview.postMessage as jest.Mock).mock.calls.find(
-        (c: unknown[]) => (c[0] as Record<string, unknown>).type === 'error',
+      const calls = (panel.webview.postMessage as jest.Mock).mock.calls.map(
+        (c: unknown[]) => c[0] as Record<string, unknown>,
       );
+
+      const errorMsg = calls.find((m) => m.type === 'error');
       expect(errorMsg).toBeDefined();
-      expect((errorMsg?.[0] as Record<string, unknown>).message).toContain(
-        'AI provider not configured',
-      );
+      expect(errorMsg?.message).toContain('Not signed in');
+
+      // Must also send history + state to clear the optimistic user message and spinner
+      const stateMsg = calls.find((m) => m.type === 'state');
+      expect(stateMsg).toEqual({ type: 'state', isProcessing: false });
+
+      const historyMsg = calls.find((m) => m.type === 'history');
+      expect(historyMsg).toEqual({ type: 'history', messages: [] });
     });
 
     it('should post error when workspace root is not available', async () => {
