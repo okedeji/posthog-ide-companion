@@ -359,6 +359,7 @@ export class ExtensionHost implements vscode.Disposable {
               'complete',
               workspaceInfo,
             );
+            this.mergeSetupIssues(workspaceInfo.setupIssues);
           }
         }
       } else {
