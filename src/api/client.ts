@@ -110,6 +110,43 @@ export class PostHogApiClient {
     return this.request('PATCH', path, body, schema);
   }
 
+  async delete(path: string): Promise<ApiResult<void>> {
+    const token = await this.resolveToken();
+    if (!token) {
+      return {
+        ok: false,
+        error: { code: 'unauthorized', message: 'No valid token available' },
+      };
+    }
+
+    const url = `${this.baseUrl}${path}`;
+    let response: Response;
+    try {
+      response = await this.fetchWithRetry(url, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        error: {
+          code: 'network',
+          message:
+            err instanceof Error ? err.message : 'Network request failed',
+        },
+      };
+    }
+
+    if (!response.ok) {
+      return { ok: false, error: classifyHttpError(response.status) };
+    }
+
+    return { ok: true, data: undefined };
+  }
+
   private async request<T>(
     method: string,
     path: string,

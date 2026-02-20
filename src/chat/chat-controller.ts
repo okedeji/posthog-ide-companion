@@ -45,6 +45,9 @@ import { AddInsightToDashboardTool } from '../ai/tools/add-insight-to-dashboard'
 import { CreateSurveyTool } from '../ai/tools/create-survey';
 import { UpdateSurveyTool } from '../ai/tools/update-survey';
 import { UpdateErrorStatusTool } from '../ai/tools/update-error-status';
+import { CreateAlertTool } from '../ai/tools/create-alert';
+import { UpdateAlertTool } from '../ai/tools/update-alert';
+import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
@@ -182,6 +185,9 @@ export class ChatController implements vscode.Disposable {
         new AddInsightToDashboardTool(apiClient),
         new CreateSurveyTool(apiClient),
         new UpdateSurveyTool(apiClient),
+        new CreateAlertTool(apiClient),
+        new UpdateAlertTool(apiClient),
+        new DeleteAlertTool(apiClient),
         new UpdateErrorStatusTool(apiClient, (errorId, status) => {
           if (status !== 'active') {
             this._options.onDiscoveryResolved?.(`error:${errorId}`);

@@ -211,17 +211,44 @@ export type SurveyQuestion = z.infer<typeof SurveyQuestionSchema>;
 export const AlertSchema = z.object({
   id: z.number(),
   name: z.string(),
-  state: z.enum(['firing', 'not_firing', 'snoozed']),
+  state: z.enum(['firing', 'not_firing', 'snoozed']).optional(),
   enabled: z.boolean(),
   condition: z
     .object({
       type: z.string(),
-      threshold: z.number().optional(),
     })
+    .nullable()
     .optional(),
-  insight: z.number().nullable().optional(),
+  threshold: z
+    .object({
+      configuration: z
+        .object({
+          type: z.string(),
+          bounds: z
+            .object({
+              lower: z.number().nullable().optional(),
+              upper: z.number().nullable().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .nullable()
+    .optional(),
+  config: z
+    .object({
+      type: z.string(),
+      series_index: z.number().optional(),
+    })
+    .nullable()
+    .optional(),
+  insight: z.union([z.number(), z.unknown()]).nullable().optional(),
+  calculation_interval: z.string().optional(),
+  skip_weekend: z.boolean().optional(),
+  snoozed_until: z.string().nullable().optional(),
   last_checked_at: z.string().nullable().optional(),
   last_notified_at: z.string().nullable().optional(),
+  next_check_at: z.string().nullable().optional(),
   created_at: z.string().optional(),
 });
 
