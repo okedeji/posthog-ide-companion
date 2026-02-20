@@ -1,5 +1,14 @@
 import type { SetupIssue } from '../../../workspace/types';
-import type { SetupIssueDiscovery } from '../types';
+import type { DiscoverySeverity, SetupIssueDiscovery } from '../types';
+
+const INFO_CHECK_IDS: ReadonlySet<string> = new Set([
+  'no_custom_events',
+  'no_feature_flags',
+]);
+
+function getSeverity(checkId: string): DiscoverySeverity {
+  return INFO_CHECK_IDS.has(checkId) ? 'info' : 'warning';
+}
 
 export function workspaceInfoToSetupDiscoveries(
   issues: SetupIssue[],
@@ -11,7 +20,7 @@ export function workspaceInfoToSetupDiscoveries(
     kind: 'setup_issue' as const,
     title: issue.title,
     description: issue.description,
-    severity: 'warning' as const,
+    severity: getSeverity(issue.checkId),
     firstSeen: now,
     lastSeen: now,
     source: {

@@ -48,4 +48,51 @@ describe('workspaceInfoToSetupDiscoveries', () => {
       'setup_issue:source_maps_not_configured',
     ]);
   });
+
+  it('should assign info severity to suggestion checks', () => {
+    const infoCheckIds = ['no_custom_events', 'no_feature_flags'];
+
+    for (const checkId of infoCheckIds) {
+      const discoveries = workspaceInfoToSetupDiscoveries([
+        makeIssue({ checkId }),
+      ]);
+      expect(discoveries[0]?.severity).toBe('info');
+    }
+  });
+
+  it('should assign warning severity to problem checks', () => {
+    const warningCheckIds = [
+      'no_user_identification',
+      'debug_mode_enabled',
+      'spa_pageview_not_configured',
+    ];
+
+    for (const checkId of warningCheckIds) {
+      const discoveries = workspaceInfoToSetupDiscoveries([
+        makeIssue({ checkId }),
+      ]);
+      expect(discoveries[0]?.severity).toBe('warning');
+    }
+  });
+
+  it('should produce unique discovery ids for all eight check types', () => {
+    const allCheckIds = [
+      'posthog_not_integrated',
+      'error_capture_not_configured',
+      'source_maps_not_configured',
+      'no_user_identification',
+      'no_custom_events',
+      'debug_mode_enabled',
+      'spa_pageview_not_configured',
+      'no_feature_flags',
+    ];
+
+    const issues = allCheckIds.map((checkId) => makeIssue({ checkId }));
+    const discoveries = workspaceInfoToSetupDiscoveries(issues);
+
+    expect(discoveries).toHaveLength(8);
+    const ids = discoveries.map((d) => d.id);
+    expect(new Set(ids).size).toBe(8);
+    expect(ids).toEqual(allCheckIds.map((id) => `setup_issue:${id}`));
+  });
 });
