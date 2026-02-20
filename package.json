@@ -119,6 +119,11 @@
         "command": "posthog.dismissDiscovery",
         "title": "PostHog: Dismiss Discovery",
         "icon": "$(close)"
+      },
+      {
+        "command": "posthog.sendToChat",
+        "title": "PostHog: Send to Chat",
+        "icon": "$(comment-discussion)"
       }
     ],
     "menus": {
@@ -166,6 +171,13 @@
           "group": "inline"
         }
       ],
+      "editor/context": [
+        {
+          "command": "posthog.sendToChat",
+          "when": "editorHasSelection && posthog.authenticated && posthog.projectSelected",
+          "group": "posthog@1"
+        }
+      ],
       "commandPalette": [
         {
           "command": "posthog.investigateDiscovery",
@@ -174,9 +186,21 @@
         {
           "command": "posthog.dismissDiscovery",
           "when": "false"
+        },
+        {
+          "command": "posthog.sendToChat",
+          "when": "false"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "posthog.sendToChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "editorTextFocus && editorHasSelection && posthog.authenticated && posthog.projectSelected"
+      }
+    ]
   },
   "scripts": {
     "compile": "pnpm check-types && node esbuild.mjs",

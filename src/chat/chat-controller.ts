@@ -42,6 +42,7 @@ import { CreateAlertTool } from '../ai/tools/create-alert';
 import { UpdateAlertTool } from '../ai/tools/update-alert';
 import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
+import type { CodeSelection } from '../ui/chat/chat-provider';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { Logger } from '../utils/logger';
 import type {
@@ -81,6 +82,7 @@ export class ChatController implements vscode.Disposable {
     (decision: ConsentDecision) => void
   >();
   private _discoveryContext: Discovery | undefined;
+  private _codeContext: CodeSelection | undefined;
   private _pendingEditFeedback: string | undefined;
 
   constructor(options: ChatControllerOptions) {
@@ -108,6 +110,12 @@ export class ChatController implements vscode.Disposable {
       this._discoveryContext = undefined;
       return this._session.send(augmented, message);
     }
+    if (this._codeContext) {
+      const context = buildCodeContext(this._codeContext);
+      const augmented = context + '\n\n' + message;
+      this._codeContext = undefined;
+      return this._session.send(augmented, message);
+    }
     return this._session.send(message);
   }
 
@@ -128,8 +136,13 @@ export class ChatController implements vscode.Disposable {
     this._discoveryContext = discovery;
   }
 
+  setCodeContext(context: CodeSelection): void {
+    this._codeContext = context;
+  }
+
   reset(): void {
     this._discoveryContext = undefined;
+    this._codeContext = undefined;
 
     // Reject pending consents first so the agent loop can finish
     for (const [id, handler] of this._pendingConsent) {
@@ -279,6 +292,19 @@ export class ChatController implements vscode.Disposable {
       });
     });
   };
+}
+
+function buildCodeContext(ctx: CodeSelection): string {
+  const lines = [
+    `## Selected Code`,
+    '',
+    `File: ${ctx.relativePath} (lines ${ctx.startLine}-${ctx.endLine})`,
+    '',
+    '```' + ctx.language,
+    ctx.code,
+    '```',
+  ];
+  return lines.join('\n');
 }
 
 function buildDiscoveryContext(discovery: Discovery): string {

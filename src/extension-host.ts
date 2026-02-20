@@ -42,6 +42,7 @@ import { ChatViewProvider } from './ui/chat/chat-provider';
 import { ChatHistory } from './chat/history';
 import { PostHogMcpClient } from './mcp/client';
 import type { Discovery } from './features/discoveries/types';
+import { SendToChatCodeLensProvider } from './ui/editor/send-to-chat-lens';
 
 export class ExtensionHost implements vscode.Disposable {
   private readonly authProvider: PostHogAuthProvider;
@@ -175,6 +176,39 @@ export class ExtensionHost implements vscode.Disposable {
           this.discoveryStore.remove(discovery.id);
         },
       ),
+      vscode.commands.registerCommand('posthog.sendToChat', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.selection.isEmpty) {
+          return;
+        }
+
+        const { selection, document } = editor;
+        const workspaceRoot =
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const filePath = document.uri.fsPath;
+        const relativePath = workspaceRoot
+          ? filePath.replace(workspaceRoot + '/', '')
+          : filePath;
+
+        this.chatProvider.loadCodeContext({
+          filePath,
+          relativePath,
+          language: document.languageId,
+          startLine: selection.start.line + 1,
+          endLine: selection.end.line + 1,
+          code: document.getText(selection),
+        });
+      }),
+    );
+
+    // CodeLens: "Send to PostHog Chat" above selected code
+    const codeLensProvider = new SendToChatCodeLensProvider();
+    this.context.subscriptions.push(
+      vscode.languages.registerCodeLensProvider('*', codeLensProvider),
+      vscode.window.onDidChangeTextEditorSelection(() =>
+        codeLensProvider.refresh(),
+      ),
+      codeLensProvider,
     );
   }
 

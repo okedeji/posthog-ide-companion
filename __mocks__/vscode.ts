@@ -28,6 +28,7 @@ export const window = {
     all: [],
     close: jest.fn(async () => undefined),
   },
+  onDidChangeTextEditorSelection: jest.fn(() => ({ dispose: jest.fn() })),
   withProgress: jest.fn(
     async (_opts: unknown, task: (progress: unknown) => Promise<unknown>) =>
       task({}),
@@ -58,6 +59,7 @@ export const window = {
 };
 
 export const languages = {
+  registerCodeLensProvider: jest.fn(() => ({ dispose: jest.fn() })),
   getDiagnostics: jest.fn(() => []),
   onDidChangeDiagnostics: jest.fn(
     (listener: (e: { uris: Uri[] }) => void) => {

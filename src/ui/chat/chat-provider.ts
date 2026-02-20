@@ -17,6 +17,15 @@ import type { ChatHistory, ChatSessionSummary } from '../../chat/history';
 import type { Logger } from '../../utils/logger';
 import { deriveSessionTitle } from '../../chat/history';
 
+export type CodeSelection = {
+  filePath: string;
+  relativePath: string;
+  language: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+};
+
 // Sent from the extension to the webview
 type WebviewMessage =
   | { type: 'history'; messages: readonly SessionMessage[] }
@@ -110,6 +119,24 @@ export class ChatViewProvider implements vscode.Disposable {
   /** Dispose the current controller so the next message creates a fresh one. */
   resetController(): void {
     this._saveAndReset();
+  }
+
+  loadCodeContext(context: CodeSelection): void {
+    this.open();
+
+    const controller = this._ensureController();
+    if (!controller) {
+      return;
+    }
+
+    controller.setCodeContext(context);
+    this._postMessage({
+      type: 'context_loaded',
+      title: context.relativePath,
+      detail: `Lines ${context.startLine}-${context.endLine}`,
+      kind: 'code',
+      severity: 'code',
+    });
   }
 
   loadDiscoveryContext(discovery: Discovery): void {

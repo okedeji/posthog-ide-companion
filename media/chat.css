@@ -214,6 +214,11 @@ body {
   background: rgba(55, 148, 255, 0.08);
 }
 
+.message.user .msg-context.severity-code {
+  border-left-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+}
+
 .message.user .msg-context .msg-ctx-kind {
   text-transform: uppercase;
   font-weight: 600;
@@ -228,6 +233,10 @@ body {
 
 .message.user .msg-context.severity-warning .msg-ctx-kind {
   color: var(--vscode-list-warningForeground, #cca700);
+}
+
+.message.user .msg-context.severity-code .msg-ctx-kind {
+  color: var(--vscode-focusBorder, #007fd4);
 }
 
 .message.user .msg-context .msg-ctx-title {

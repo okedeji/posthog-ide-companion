@@ -170,7 +170,7 @@
     if (msg.role === 'user') {
       var ctxHtml = '';
       if (msg.context) {
-        var sev = msg.context.severity || 'info';
+        var sev = msg.context.kind === 'code' ? 'code' : (msg.context.severity || 'info');
         var detailPart = msg.context.detail
           ? '<div class="msg-ctx-detail">' + escapeHtml(msg.context.detail) + '</div>'
           : '';
@@ -390,12 +390,14 @@
     critical: 'var(--vscode-testing-iconFailed, #f44)',
     warning: 'var(--vscode-list-warningForeground, #cca700)',
     info: 'var(--vscode-notificationsInfoIcon-foreground, #3794ff)',
+    code: 'var(--vscode-focusBorder, #007fd4)',
   };
 
   var severityBg = {
     critical: 'rgba(255, 68, 68, 0.08)',
     warning: 'rgba(204, 167, 0, 0.08)',
     info: 'rgba(55, 148, 255, 0.08)',
+    code: 'var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1))',
   };
 
   function renderContextBanner() {
@@ -405,9 +407,10 @@
       return;
     }
 
-    var accentColor = severityColors[ctx.severity] || severityColors.info;
+    var colorKey = ctx.kind === 'code' ? 'code' : ctx.severity;
+    var accentColor = severityColors[colorKey] || severityColors.info;
     bannerEl.style.borderLeftColor = accentColor;
-    bannerEl.style.background = severityBg[ctx.severity] || severityBg.info;
+    bannerEl.style.background = severityBg[colorKey] || severityBg.info;
 
     var detailHtml = ctx.detail
       ? '<div class="context-detail collapsed">' + escapeHtml(ctx.detail) + '</div>'
