@@ -51,11 +51,7 @@ export class ExtensionHost implements vscode.Disposable {
   private readonly chatProvider: ChatViewProvider;
   private readonly statusBar: vscode.StatusBarItem;
 
-  private activeErrorPoller: Poller<void> | undefined;
-  private activeAlertPoller: Poller<void> | undefined;
-  private activeExperimentPoller: Poller<void> | undefined;
-  private activeFlagPoller: Poller<void> | undefined;
-  private activeFileAnalysisPoller: Poller<void> | undefined;
+  private activePollers: Poller<void>[] = [];
   private mcpClient: PostHogMcpClient | undefined;
   private apiClient: PostHogApiClient | undefined;
 
@@ -83,9 +79,18 @@ export class ExtensionHost implements vscode.Disposable {
 
     this.discoveryStore = new DiscoveryStore();
     const discoveriesProvider = new DiscoveriesProvider(this.discoveryStore);
+    const discoveriesView = vscode.window.createTreeView(
+      DiscoveriesProvider.viewType,
+      { treeDataProvider: discoveriesProvider },
+    );
+    context.subscriptions.push(discoveriesView);
     context.subscriptions.push(
-      vscode.window.createTreeView(DiscoveriesProvider.viewType, {
-        treeDataProvider: discoveriesProvider,
+      this.discoveryStore.onDidChange(() => {
+        const count = this.discoveryStore.count;
+        discoveriesView.badge =
+          count > 0
+            ? { value: count, tooltip: `${count} discoveries` }
+            : undefined;
       }),
     );
     context.subscriptions.push(discoveriesProvider, this.discoveryStore);
@@ -104,7 +109,6 @@ export class ExtensionHost implements vscode.Disposable {
     });
     context.subscriptions.push(this.chatProvider);
 
-    // Restore the chat panel if it was open before VSCode restarted
     context.subscriptions.push(
       vscode.window.registerWebviewPanelSerializer(ChatViewProvider.viewType, {
         deserializeWebviewPanel: async (panel: vscode.WebviewPanel) => {
@@ -120,6 +124,8 @@ export class ExtensionHost implements vscode.Disposable {
     this.statusBar.show();
     context.subscriptions.push(this.statusBar);
   }
+
+  // --- commands ---
 
   registerCommands(): void {
     this.context.subscriptions.push(
@@ -145,20 +151,8 @@ export class ExtensionHost implements vscode.Disposable {
         void this.triggerWorkspaceDetection();
       }),
       vscode.commands.registerCommand('posthog.refreshDiscoveries', () => {
-        if (this.activeErrorPoller) {
-          void this.activeErrorPoller.pollNow();
-        }
-        if (this.activeAlertPoller) {
-          void this.activeAlertPoller.pollNow();
-        }
-        if (this.activeExperimentPoller) {
-          void this.activeExperimentPoller.pollNow();
-        }
-        if (this.activeFlagPoller) {
-          void this.activeFlagPoller.pollNow();
-        }
-        if (this.activeFileAnalysisPoller) {
-          void this.activeFileAnalysisPoller.pollNow();
+        for (const poller of this.activePollers) {
+          void poller.pollNow();
         }
       }),
       vscode.commands.registerCommand('posthog.openChat', () => {
@@ -201,7 +195,6 @@ export class ExtensionHost implements vscode.Disposable {
       }),
     );
 
-    // CodeLens: "Send to PostHog Chat" above selected code
     const codeLensProvider = new SendToChatCodeLensProvider();
     this.context.subscriptions.push(
       vscode.languages.registerCodeLensProvider('*', codeLensProvider),
@@ -211,6 +204,8 @@ export class ExtensionHost implements vscode.Disposable {
       codeLensProvider,
     );
   }
+
+  // --- lifecycle ---
 
   async initialize(): Promise<void> {
     const credentials = await this.authProvider.getValidToken();
@@ -247,13 +242,14 @@ export class ExtensionHost implements vscode.Disposable {
     this.disconnectMcp();
   }
 
+  // --- ai provider ---
+
   private _resolveAIProvider(): LLMProvider | undefined {
     const aiSelection = getActiveAISelection(this.context);
     if (!aiSelection) {
       return undefined;
     }
 
-    // Sync getter. Safe because the provider is only resolved after secrets are loaded.
     if (this._cachedProvider) {
       return this._cachedProvider;
     }
@@ -271,6 +267,8 @@ export class ExtensionHost implements vscode.Disposable {
     const aiConfig = await getAIConfig(this.context.secrets);
     this._cachedProvider = createProvider(aiConfig, aiSelection);
   }
+
+  // --- mcp ---
 
   private async connectMcp(apiKey: string, projectId: number): Promise<void> {
     this.disconnectMcp();
@@ -291,6 +289,8 @@ export class ExtensionHost implements vscode.Disposable {
       this.mcpClient = undefined;
     }
   }
+
+  // --- auth and project ---
 
   private async signIn(): Promise<void> {
     try {
@@ -405,6 +405,8 @@ export class ExtensionHost implements vscode.Disposable {
     }
   }
 
+  // --- ai config ---
+
   private async configureAI(): Promise<void> {
     try {
       const existing = getActiveAISelection(this.context);
@@ -432,6 +434,8 @@ export class ExtensionHost implements vscode.Disposable {
       );
     }
   }
+
+  // --- workspace detection ---
 
   private async triggerWorkspaceDetection(): Promise<void> {
     const aiSelection = getActiveAISelection(this.context);
@@ -539,6 +543,8 @@ export class ExtensionHost implements vscode.Disposable {
     }
   }
 
+  // --- discovery polling ---
+
   private startDiscoveryPolling(region: CloudRegion, projectId: number): void {
     this.stopDiscoveryPolling();
     this.discoveryStore.clear();
@@ -549,67 +555,38 @@ export class ExtensionHost implements vscode.Disposable {
     };
     const client = new PostHogApiClient(resolveToken, region, projectId);
     this.apiClient = client;
-    this.activeErrorPoller = createErrorPoller(
-      client,
-      this.discoveryStore,
-      this.logger,
-    );
-    this.activeAlertPoller = createAlertPoller(
-      client,
-      this.discoveryStore,
-      this.logger,
-    );
-    this.activeExperimentPoller = createExperimentPoller(
-      client,
-      this.discoveryStore,
-      this.logger,
-    );
-    this.activeFlagPoller = createFlagPoller(
-      client,
-      this.discoveryStore,
-      this.logger,
-    );
+
+    this.activePollers = [
+      createErrorPoller(client, this.discoveryStore, this.logger),
+      createAlertPoller(client, this.discoveryStore, this.logger),
+      createExperimentPoller(client, this.discoveryStore, this.logger),
+      createFlagPoller(client, this.discoveryStore, this.logger),
+    ];
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (workspaceRoot) {
-      this.activeFileAnalysisPoller = createFileAnalysisPoller(
-        this.discoveryStore,
-        this.logger,
-        workspaceRoot,
-        () => this._resolveAIProvider(),
-        () => getStoredWorkspaceInfo(this.context),
+      this.activePollers.push(
+        createFileAnalysisPoller(
+          this.discoveryStore,
+          this.logger,
+          workspaceRoot,
+          () => this._resolveAIProvider(),
+          () => getStoredWorkspaceInfo(this.context),
+        ),
       );
     }
 
-    this.activeErrorPoller.start();
-    this.activeAlertPoller.start();
-    this.activeExperimentPoller.start();
-    this.activeFlagPoller.start();
-    this.activeFileAnalysisPoller?.start();
+    for (const poller of this.activePollers) {
+      poller.start();
+    }
     this.logger.info('Discovery polling started');
   }
 
   private stopDiscoveryPolling(): void {
-    if (this.activeErrorPoller) {
-      this.activeErrorPoller.dispose();
-      this.activeErrorPoller = undefined;
+    for (const poller of this.activePollers) {
+      poller.dispose();
     }
-    if (this.activeAlertPoller) {
-      this.activeAlertPoller.dispose();
-      this.activeAlertPoller = undefined;
-    }
-    if (this.activeExperimentPoller) {
-      this.activeExperimentPoller.dispose();
-      this.activeExperimentPoller = undefined;
-    }
-    if (this.activeFlagPoller) {
-      this.activeFlagPoller.dispose();
-      this.activeFlagPoller = undefined;
-    }
-    if (this.activeFileAnalysisPoller) {
-      this.activeFileAnalysisPoller.dispose();
-      this.activeFileAnalysisPoller = undefined;
-    }
+    this.activePollers = [];
   }
 
   private async restoreAISelection(): Promise<void> {
@@ -649,6 +626,8 @@ export class ExtensionHost implements vscode.Disposable {
     this.discoveryStore.replaceByKind('setup_issue', discoveries);
     this.logger.info(`Replaced setup issues (${discoveries.length} current)`);
   }
+
+  // --- status bar ---
 
   private updateStatusBar(
     state: 'signedOut' | 'noProject' | 'project',

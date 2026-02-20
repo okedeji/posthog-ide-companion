@@ -111,7 +111,7 @@ describe('ExtensionHost', () => {
   // Stored references to mock instances (mockImplementation returns these)
   let authInstance: Record<string, jest.Mock>;
   let statusInstance: Record<string, jest.Mock>;
-  let storeInstance: Record<string, jest.Mock>;
+  let storeInstance: Record<string, jest.Mock | number>;
   let pollerInstance: Record<string, jest.Mock>;
 
   beforeEach(() => {
@@ -142,6 +142,8 @@ describe('ExtensionHost', () => {
       merge: jest.fn(() => 0),
       clear: jest.fn(),
       dispose: jest.fn(),
+      onDidChange: jest.fn(() => ({ dispose: jest.fn() })),
+      count: 0,
     };
     (DiscoveryStore as unknown as jest.Mock).mockImplementation(
       () => storeInstance,
