@@ -65,7 +65,7 @@ describe('createFlagPoller', () => {
 
       const stale = store.getByKind('stale_flag');
       expect(stale).toHaveLength(1);
-      expect(stale[0]?.id).toBe('stale_flag:1');
+      expect(stale[0]?.id).toBe('stale_flag:new-checkout');
       expect(stale[0]?.severity).toBe('info');
       expect(stale[0]?.title).toContain('new-checkout');
 
@@ -152,7 +152,7 @@ describe('createFlagPoller', () => {
     it('should detect flags with performed_rollback', async () => {
       const store = new DiscoveryStore();
       const client = makeMockClient([
-        makeFlag({ id: 10, performed_rollback: true }),
+        makeFlag({ id: 10, key: 'rollback-flag', performed_rollback: true }),
       ]);
       const poller = createFlagPoller(client, store, makeMockLogger(), 60_000);
 
@@ -161,7 +161,7 @@ describe('createFlagPoller', () => {
 
       const rollbacks = store.getByKind('flag_rollback');
       expect(rollbacks).toHaveLength(1);
-      expect(rollbacks[0]?.id).toBe('flag_rollback:10');
+      expect(rollbacks[0]?.id).toBe('flag_rollback:rollback-flag');
       expect(rollbacks[0]?.severity).toBe('critical');
       expect(rollbacks[0]?.title).toContain('rolled back');
 
@@ -189,9 +189,9 @@ describe('createFlagPoller', () => {
     it('should produce both stale and rollback discoveries from one poll', async () => {
       const store = new DiscoveryStore();
       const client = makeMockClient([
-        makeFlag({ id: 1 }), // stale (100%, 31 days old)
-        makeFlag({ id: 2, performed_rollback: true }), // rollback + stale
-        makeFlag({ id: 3, created_at: FIVE_DAYS_AGO }), // neither
+        makeFlag({ id: 1, key: 'flag-a' }), // stale (100%, 31 days old)
+        makeFlag({ id: 2, key: 'flag-b', performed_rollback: true }), // rollback + stale
+        makeFlag({ id: 3, key: 'flag-c', created_at: FIVE_DAYS_AGO }), // neither
       ]);
       const poller = createFlagPoller(client, store, makeMockLogger(), 60_000);
 
@@ -207,8 +207,8 @@ describe('createFlagPoller', () => {
     it('should show combined notification for new flag issues', async () => {
       const store = new DiscoveryStore();
       const client = makeMockClient([
-        makeFlag({ id: 1 }),
-        makeFlag({ id: 2, performed_rollback: true }),
+        makeFlag({ id: 1, key: 'flag-a' }),
+        makeFlag({ id: 2, key: 'flag-b', performed_rollback: true }),
       ]);
       const poller = createFlagPoller(client, store, makeMockLogger(), 60_000);
 
@@ -265,8 +265,8 @@ describe('createFlagPoller', () => {
 
   it('should replace both kinds separately on each poll', async () => {
     const store = new DiscoveryStore();
-    const flag1 = makeFlag({ id: 1 });
-    const flag2 = makeFlag({ id: 2, performed_rollback: true });
+    const flag1 = makeFlag({ id: 1, key: 'flag-a' });
+    const flag2 = makeFlag({ id: 2, key: 'flag-b', performed_rollback: true });
 
     const client = makeMockClient([flag1, flag2]);
     const poller = createFlagPoller(client, store, makeMockLogger(), 60_000);

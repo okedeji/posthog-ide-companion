@@ -12,6 +12,7 @@ import { CheckEnvKeysTool } from '../ai/tools/check-env-keys';
 import { BashTool } from '../ai/tools/bash';
 import { ProposeEditTool } from '../ai/tools/propose-edit';
 import { createMcpTools } from '../ai/tools/mcp-tool';
+import { buildMcpToolHooks } from '../ai/tools/mcp-hooks';
 import {
   CHAT_INSTRUCTIONS,
   buildErrorDiscoveryContext,
@@ -36,15 +37,6 @@ import type {
 } from '../ai/tools/propose-edit';
 import type { PostHogMcpClient } from '../mcp/client';
 import type { PostHogApiClient } from '../api/client';
-import { CreateFeatureFlagTool } from '../ai/tools/create-feature-flag';
-import { UpdateFeatureFlagTool } from '../ai/tools/update-feature-flag';
-import { CreateExperimentTool } from '../ai/tools/create-experiment';
-import { UpdateExperimentTool } from '../ai/tools/update-experiment';
-import { CreateInsightTool } from '../ai/tools/create-insight';
-import { CreateDashboardTool } from '../ai/tools/create-dashboard';
-import { AddInsightToDashboardTool } from '../ai/tools/add-insight-to-dashboard';
-import { CreateSurveyTool } from '../ai/tools/create-survey';
-import { UpdateSurveyTool } from '../ai/tools/update-survey';
 import { UpdateErrorStatusTool } from '../ai/tools/update-error-status';
 import { CreateAlertTool } from '../ai/tools/create-alert';
 import { UpdateAlertTool } from '../ai/tools/update-alert';
@@ -173,31 +165,14 @@ export class ChatController implements vscode.Disposable {
     ];
 
     if (mcpClient) {
-      tools.push(...createMcpTools(mcpClient));
+      const hooks = this._options.onDiscoveryResolved
+        ? buildMcpToolHooks(this._options.onDiscoveryResolved)
+        : undefined;
+      tools.push(...createMcpTools(mcpClient, hooks));
     }
 
     if (apiClient) {
       tools.push(
-        new CreateFeatureFlagTool(apiClient),
-        new UpdateFeatureFlagTool(apiClient, (flagId, active) => {
-          if (!active) {
-            this._options.onDiscoveryResolved?.(`stale_flag:${flagId}`);
-            this._options.onDiscoveryResolved?.(`flag_rollback:${flagId}`);
-          }
-        }),
-        new CreateExperimentTool(apiClient),
-        new UpdateExperimentTool(apiClient, (experimentId, concluded) => {
-          if (concluded) {
-            this._options.onDiscoveryResolved?.(
-              `experiment_result:${experimentId}`,
-            );
-          }
-        }),
-        new CreateInsightTool(apiClient),
-        new CreateDashboardTool(apiClient),
-        new AddInsightToDashboardTool(apiClient),
-        new CreateSurveyTool(apiClient),
-        new UpdateSurveyTool(apiClient),
         new CreateAlertTool(apiClient),
         new UpdateAlertTool(apiClient, (alertId, enabled) => {
           if (!enabled) {

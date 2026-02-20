@@ -11,6 +11,11 @@ export type McpConnectionState =
   | 'connected'
   | 'error';
 
+export type McpToolResult = {
+  content: string;
+  isError: boolean;
+};
+
 export type McpClientOptions = {
   apiKey: string;
   projectId: number;
@@ -93,9 +98,12 @@ export class PostHogMcpClient implements vscode.Disposable {
     this.setState('disconnected');
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<string> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<McpToolResult> {
     if (!this._client || this._state !== 'connected') {
-      return 'Error: MCP client is not connected';
+      return { content: 'Error: MCP client is not connected', isError: true };
     }
 
     const result = await this._client.callTool({
@@ -103,7 +111,10 @@ export class PostHogMcpClient implements vscode.Disposable {
       arguments: args,
     });
 
-    return serializeToolResult(result.content);
+    return {
+      content: serializeToolResult(result.content),
+      isError: result.isError === true,
+    };
   }
 
   dispose(): void {
@@ -136,6 +147,28 @@ export class PostHogMcpClient implements vscode.Disposable {
   }
 }
 
+// Explicit registry of MCP tools that modify data and require user consent.
+const MCP_WRITE_TOOLS = new Set([
+  'create-feature-flag',
+  'update-feature-flag',
+  'delete-feature-flag',
+  'experiment-create',
+  'experiment-update',
+  'experiment-delete',
+  'dashboard-create',
+  'dashboard-update',
+  'dashboard-delete',
+  'dashboard-reorder-tiles',
+  'add-insight-to-dashboard',
+  'insight-create-from-query',
+  'insight-update',
+  'insight-delete',
+  'survey-create',
+  'survey-update',
+  'survey-delete',
+  'switch-project',
+]);
+
 // Both MCP and our ToolDefinition use JSON Schema, so this is a direct map
 function bridgeToolDefinition(mcpTool: {
   name: string;
@@ -146,6 +179,7 @@ function bridgeToolDefinition(mcpTool: {
     name: mcpTool.name,
     description: mcpTool.description ?? '',
     parameters: mcpTool.inputSchema,
+    requiresConsent: MCP_WRITE_TOOLS.has(mcpTool.name),
   };
 }
 

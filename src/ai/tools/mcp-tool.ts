@@ -1,9 +1,8 @@
 import type { Tool } from './tool';
 import type { PostHogMcpClient } from '../../mcp/client';
 import type { ToolDefinition, ToolCall } from '../types';
+import type { McpToolHook, McpToolHooks } from './mcp-hooks';
 
-// Wraps a single MCP tool into the Tool interface so the registry
-// treats MCP and local tools identically.
 export class McpTool implements Tool {
   readonly definition: ToolDefinition;
   readonly category = 'posthog' as const;
@@ -12,18 +11,33 @@ export class McpTool implements Tool {
   constructor(
     private readonly _client: PostHogMcpClient,
     definition: ToolDefinition,
+    private readonly _hook?: McpToolHook,
   ) {
     this.definition = definition;
-    // Use first sentence of the MCP description
     this.promptSummary =
       definition.description.split('.')[0] || definition.name;
   }
 
   async execute(call: ToolCall): Promise<string> {
-    return this._client.callTool(call.name, call.arguments);
+    const result = await this._client.callTool(call.name, call.arguments);
+
+    if (!result.isError && this._hook) {
+      try {
+        this._hook.onSuccess(call.arguments, result.content);
+      } catch {
+        // hooks are fire-and-forget
+      }
+    }
+
+    return result.content;
   }
 }
 
-export function createMcpTools(client: PostHogMcpClient): Tool[] {
-  return client.tools.map((def) => new McpTool(client, def));
+export function createMcpTools(
+  client: PostHogMcpClient,
+  hooks?: McpToolHooks,
+): Tool[] {
+  return client.tools.map(
+    (def) => new McpTool(client, def, hooks?.get(def.name)),
+  );
 }

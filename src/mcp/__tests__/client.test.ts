@@ -101,7 +101,31 @@ describe('PostHogMcpClient', () => {
           type: 'object',
           properties: { limit: { type: 'number' } },
         },
+        requiresConsent: false,
       });
+    });
+
+    it('should set requiresConsent on write tools', async () => {
+      mockListTools.mockResolvedValue({
+        tools: [
+          {
+            name: 'create-feature-flag',
+            description: 'Create a feature flag',
+            inputSchema: { type: 'object', properties: {} },
+          },
+          {
+            name: 'entity-search',
+            description: 'Search entities',
+            inputSchema: { type: 'object', properties: {} },
+          },
+        ],
+      });
+
+      const client = new PostHogMcpClient(OPTIONS);
+      await client.connect();
+
+      expect(client.tools[0]?.requiresConsent).toBe(true);
+      expect(client.tools[1]?.requiresConsent).toBe(false);
     });
 
     it('should set state to error on connection failure', async () => {
@@ -142,7 +166,7 @@ describe('PostHogMcpClient', () => {
 
       const result = await client.callTool('list-errors', { limit: 5 });
 
-      expect(result).toBe('Found 5 errors');
+      expect(result).toEqual({ content: 'Found 5 errors', isError: false });
       expect(mockCallTool).toHaveBeenCalledWith({
         name: 'list-errors',
         arguments: { limit: 5 },
@@ -161,14 +185,30 @@ describe('PostHogMcpClient', () => {
       await client.connect();
 
       const result = await client.callTool('test', {});
-      expect(result).toBe('Line 1\nLine 2');
+      expect(result.content).toBe('Line 1\nLine 2');
+    });
+
+    it('should return isError true when MCP reports an error', async () => {
+      mockCallTool.mockResolvedValue({
+        content: [{ type: 'text', text: 'Not found' }],
+        isError: true,
+      });
+
+      const client = new PostHogMcpClient(OPTIONS);
+      await client.connect();
+
+      const result = await client.callTool('test', {});
+      expect(result).toEqual({ content: 'Not found', isError: true });
     });
 
     it('should return error when not connected', async () => {
       const client = new PostHogMcpClient(OPTIONS);
 
       const result = await client.callTool('list-errors', {});
-      expect(result).toBe('Error: MCP client is not connected');
+      expect(result).toEqual({
+        content: 'Error: MCP client is not connected',
+        isError: true,
+      });
     });
   });
 

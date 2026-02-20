@@ -35,7 +35,7 @@ function isStale(flag: FeatureFlag): boolean {
 
 function staleFlagToDiscovery(flag: FeatureFlag): FlagDiscovery {
   return {
-    id: `stale_flag:${flag.id}`,
+    id: `stale_flag:${flag.key}`,
     kind: 'stale_flag',
     title: `Flag "${flag.key}" at 100% for 30+ days`,
     description: `Created ${formatRelativeTime(flag.created_at!)} · consider removing the flag`,
@@ -48,7 +48,7 @@ function staleFlagToDiscovery(flag: FeatureFlag): FlagDiscovery {
 
 function rollbackFlagToDiscovery(flag: FeatureFlag): FlagDiscovery {
   return {
-    id: `flag_rollback:${flag.id}`,
+    id: `flag_rollback:${flag.key}`,
     kind: 'flag_rollback',
     title: `Flag "${flag.key}" was rolled back`,
     description: 'Automatic rollback triggered',
