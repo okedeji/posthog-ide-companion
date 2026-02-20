@@ -50,6 +50,7 @@ type IncomingMessage =
   | { type: 'show_history' }
   | { type: 'load_session'; id: string }
   | { type: 'cancel' }
+  | { type: 'open_link'; url: string }
   | { type: 'ready' };
 
 // Used getters because these can change mid-session (e.g. user switches llm provider).
@@ -230,6 +231,12 @@ export class ChatViewProvider implements vscode.Disposable {
 
       case 'cancel':
         this._controller?.cancel();
+        break;
+
+      case 'open_link':
+        if (msg.url) {
+          void vscode.env.openExternal(vscode.Uri.parse(msg.url));
+        }
         break;
     }
   }

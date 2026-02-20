@@ -472,12 +472,12 @@ body {
   opacity: 0.9;
 }
 
-.consent-buttons .modify {
+.consent-buttons .interrupt {
   background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
 }
 
-.consent-buttons .modify:hover {
+.consent-buttons .interrupt:hover {
   opacity: 0.9;
 }
 

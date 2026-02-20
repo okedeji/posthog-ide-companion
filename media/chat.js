@@ -195,7 +195,7 @@
             : '';
           var truncated = truncateResult(block.result);
           html += '<div class="tool-activity"><details>'
-            + '<summary>' + escapeHtml(block.name) + duration + '</summary>'
+            + '<summary>' + escapeHtml(humanizeToolName(block.name)) + duration + '</summary>'
             + formatArgs(block.arguments)
             + '<div class="tool-result">' + escapeHtml(truncated) + '</div>'
             + '</details></div>';
@@ -213,7 +213,7 @@
           : '';
         var truncated = truncateResult(activity.result);
         html += '<details>'
-          + '<summary>' + escapeHtml(activity.name) + duration + '</summary>'
+          + '<summary>' + escapeHtml(humanizeToolName(activity.name)) + duration + '</summary>'
           + formatArgs(activity.arguments)
           + '<div class="tool-result">' + escapeHtml(truncated) + '</div>'
           + '</details>';
@@ -267,7 +267,7 @@
         if (block.pending) {
           html += '<div class="working-indicator">'
             + pulseDots
-            + '<span>Using ' + escapeHtml(block.name) + '...</span>'
+            + '<span>Using ' + escapeHtml(humanizeToolName(block.name)) + '...</span>'
             + '</div>';
         } else {
           var duration = block.durationMs
@@ -275,7 +275,7 @@
             : '';
           var truncated = truncateResult(block.result || '');
           html += '<div class="tool-activity"><details>'
-            + '<summary>' + escapeHtml(block.name) + duration + '</summary>'
+            + '<summary>' + escapeHtml(humanizeToolName(block.name)) + duration + '</summary>'
             + formatArgs(block.args)
             + '<div class="tool-result">' + escapeHtml(truncated) + '</div>'
             + '</details></div>';
@@ -317,14 +317,15 @@
         + '<div style="margin-top:4px;color:var(--vscode-descriptionForeground)">' + escapeHtml(String(req.args.description || '')) + '</div>'
         + '</div>';
     } else {
-      var values = Object.values(req.args).map(function(v) {
-        return typeof v === 'string' ? v : JSON.stringify(v);
+      var lines = Object.entries(req.args).map(function(entry) {
+        var val = typeof entry[1] === 'string' ? entry[1] : JSON.stringify(entry[1], null, 2);
+        return entry[0] + ': ' + val;
       });
-      consentBody = '<div class="consent-args">' + escapeHtml(values.join('\n')) + '</div>';
+      consentBody = '<div class="consent-args">' + escapeHtml(lines.join('\n')) + '</div>';
     }
 
     var modifySection = '<div class="consent-modify hidden">'
-      + '<textarea class="consent-modify-input" placeholder="Describe what to change..." rows="2"></textarea>'
+      + '<textarea class="consent-modify-input" placeholder="Tell me what to do instead..." rows="2"></textarea>'
       + '<div class="consent-buttons" style="margin-top:6px">'
       + '<button class="modify-submit">Send</button>'
       + '<button class="modify-cancel">Cancel</button>'
@@ -332,11 +333,11 @@
       + '</div>';
 
     consentEl.innerHTML =
-      '<div class="consent-title">Approve: ' + escapeHtml(req.toolName) + '</div>'
+      '<div class="consent-title">' + escapeHtml(humanizeToolName(req.toolName)) + '</div>'
       + consentBody
       + '<div class="consent-buttons consent-main-buttons">'
       + '<button class="approve">Approve</button>'
-      + '<button class="modify">Modify</button>'
+      + '<button class="interrupt">Interrupt</button>'
       + '<button class="reject">Reject</button>'
       + '</div>'
       + modifySection;
@@ -348,7 +349,7 @@
       handleConsent('reject');
     });
 
-    var modifyBtn = consentEl.querySelector('.modify');
+    var modifyBtn = consentEl.querySelector('.interrupt');
     var modifyDiv = consentEl.querySelector('.consent-modify');
     var modifyInput = consentEl.querySelector('.consent-modify-input');
 
@@ -643,6 +644,12 @@
       '<a href="$2" target="_blank">$1</a>'
     );
 
+    // Bare URLs not already inside an href attribute
+    html = html.replace(
+      /(^|[^"'])(https?:\/\/[^\s<)]+)/g,
+      '$1<a href="$2" target="_blank">$2</a>'
+    );
+
     // Paragraphs: double newline
     html = html.replace(/\n\n/g, '</p><p>');
     html = '<p>' + html + '</p>';
@@ -669,12 +676,73 @@
       .replace(/"/g, '&quot;');
   }
 
+  var toolDisplayNames = {
+    // Custom tools
+    proposeEdit: 'Edit File',
+    bash: 'Run Command',
+    readFile: 'Read File',
+    listDirectory: 'List Directory',
+    searchCode: 'Search Code',
+    checkEnvKeys: 'Check Env Keys',
+    dismissDiscovery: 'Dismiss Discovery',
+    updateErrorStatus: 'Update Error Status',
+    createAlert: 'Create Alert',
+    updateAlert: 'Update Alert',
+    deleteAlert: 'Delete Alert',
+    // MCP
+    'add-insight-to-dashboard': 'Add Insight to Dashboard',
+    'dashboard-create': 'Create Dashboard',
+    'dashboard-delete': 'Delete Dashboard',
+    'dashboard-get': 'Get Dashboard',
+    'dashboards-get-all': 'List Dashboards',
+    'dashboard-update': 'Update Dashboard',
+    'dashboard-reorder-tiles': 'Reorder Dashboard Tiles',
+    'error-details': 'Get Error Details',
+    'list-errors': 'List Errors',
+    'create-feature-flag': 'Create Feature Flag',
+    'delete-feature-flag': 'Delete Feature Flag',
+    'feature-flag-get-all': 'List Feature Flags',
+    'feature-flag-get-definition': 'Get Feature Flag',
+    'update-feature-flag': 'Update Feature Flag',
+    'experiment-get-all': 'List Experiments',
+    'experiment-create': 'Create Experiment',
+    'experiment-delete': 'Delete Experiment',
+    'experiment-update': 'Update Experiment',
+    'experiment-get': 'Get Experiment',
+    'experiment-results-get': 'Get Experiment Results',
+    'insight-create-from-query': 'Create Insight',
+    'insight-delete': 'Delete Insight',
+    'insight-get': 'Get Insight',
+    'insight-query': 'Query Insight',
+    'insights-get-all': 'List Insights',
+    'insight-update': 'Update Insight',
+    'query-run': 'Run Query',
+    'query-generate-hogql-from-question': 'Generate HogQL Query',
+    'survey-create': 'Create Survey',
+    'survey-get': 'Get Survey',
+    'surveys-get-all': 'List Surveys',
+    'survey-update': 'Update Survey',
+    'survey-delete': 'Delete Survey',
+    'surveys-global-stats': 'Survey Global Stats',
+    'survey-stats': 'Get Survey Stats',
+    'docs-search': 'Search Docs',
+    'organizations-get': 'Get Organizations',
+    'switch-project': 'Switch Project',
+    'entity-search': 'Search Entities',
+    'demo-mcp-ui-apps': 'Demo UI Apps',
+  };
+
+  function humanizeToolName(name) {
+    return toolDisplayNames[name] || name;
+  }
+
   function formatArgs(args) {
     if (!args || Object.keys(args).length === 0) return '';
-    var values = Object.values(args).map(function(v) {
-      return typeof v === 'string' ? v : JSON.stringify(v);
+    var lines = Object.entries(args).map(function(entry) {
+      var val = typeof entry[1] === 'string' ? entry[1] : JSON.stringify(entry[1], null, 2);
+      return entry[0] + ': ' + val;
     });
-    return '<div class="tool-args">' + escapeHtml(values.join('\n')) + '</div>';
+    return '<div class="tool-args">' + escapeHtml(lines.join('\n')) + '</div>';
   }
 
   function truncateResult(text) {
