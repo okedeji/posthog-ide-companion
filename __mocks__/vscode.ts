@@ -28,6 +28,10 @@ export const window = {
     all: [],
     close: jest.fn(async () => undefined),
   },
+  withProgress: jest.fn(
+    async (_opts: unknown, task: (progress: unknown) => Promise<unknown>) =>
+      task({}),
+  ),
   registerWebviewViewProvider: jest.fn(() => ({ dispose: () => undefined })),
   registerWebviewPanelSerializer: jest.fn(() => ({ dispose: () => undefined })),
   createWebviewPanel: jest.fn(

@@ -11,7 +11,8 @@ export type DiscoveryKind =
   | 'firing_alert'
   | 'experiment_result'
   | 'stale_flag'
-  | 'flag_rollback';
+  | 'flag_rollback'
+  | 'integration_suggestion';
 
 export type DiscoverySeverity = 'info' | 'warning' | 'critical';
 
@@ -39,3 +40,12 @@ export type SetupIssueDiscovery = Discovery<SetupIssueSource>;
 export type AlertDiscovery = Discovery<Alert>;
 export type ExperimentDiscovery = Discovery<Experiment>;
 export type FlagDiscovery = Discovery<FeatureFlag>;
+
+export type IntegrationSuggestionSource = {
+  file: string;
+  suggestionType: string;
+  recommendedActions: string[];
+};
+
+export type IntegrationSuggestionDiscovery =
+  Discovery<IntegrationSuggestionSource>;

@@ -34,6 +34,7 @@ import { createErrorPoller } from './features/discoveries/pollers/error-poller';
 import { createAlertPoller } from './features/discoveries/pollers/alert-poller';
 import { createExperimentPoller } from './features/discoveries/pollers/experiment-poller';
 import { createFlagPoller } from './features/discoveries/pollers/flag-poller';
+import { createFileAnalysisPoller } from './features/discoveries/pollers/file-analysis-poller';
 import { workspaceInfoToSetupDiscoveries } from './features/discoveries/scanners/setup-issues';
 import type { Poller } from './features/discoveries/poller';
 import type { LLMProvider } from './ai/provider';
@@ -53,6 +54,7 @@ export class ExtensionHost implements vscode.Disposable {
   private activeAlertPoller: Poller<void> | undefined;
   private activeExperimentPoller: Poller<void> | undefined;
   private activeFlagPoller: Poller<void> | undefined;
+  private activeFileAnalysisPoller: Poller<void> | undefined;
   private mcpClient: PostHogMcpClient | undefined;
   private apiClient: PostHogApiClient | undefined;
 
@@ -153,6 +155,9 @@ export class ExtensionHost implements vscode.Disposable {
         }
         if (this.activeFlagPoller) {
           void this.activeFlagPoller.pollNow();
+        }
+        if (this.activeFileAnalysisPoller) {
+          void this.activeFileAnalysisPoller.pollNow();
         }
       }),
       vscode.commands.registerCommand('posthog.openChat', () => {
@@ -521,10 +526,22 @@ export class ExtensionHost implements vscode.Disposable {
       this.logger,
     );
 
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+      this.activeFileAnalysisPoller = createFileAnalysisPoller(
+        this.discoveryStore,
+        this.logger,
+        workspaceRoot,
+        () => this._resolveAIProvider(),
+        () => getStoredWorkspaceInfo(this.context),
+      );
+    }
+
     this.activeErrorPoller.start();
     this.activeAlertPoller.start();
     this.activeExperimentPoller.start();
     this.activeFlagPoller.start();
+    this.activeFileAnalysisPoller?.start();
     this.logger.info('Discovery polling started');
   }
 
@@ -544,6 +561,10 @@ export class ExtensionHost implements vscode.Disposable {
     if (this.activeFlagPoller) {
       this.activeFlagPoller.dispose();
       this.activeFlagPoller = undefined;
+    }
+    if (this.activeFileAnalysisPoller) {
+      this.activeFileAnalysisPoller.dispose();
+      this.activeFileAnalysisPoller = undefined;
     }
   }
 

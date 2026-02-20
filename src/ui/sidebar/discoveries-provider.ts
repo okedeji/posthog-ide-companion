@@ -33,6 +33,11 @@ const GROUP_CONFIG: readonly {
   { kind: 'experiment_result', label: 'Experiment Results', icon: 'beaker' },
   { kind: 'stale_flag', label: 'Stale Flags', icon: 'history' },
   { kind: 'setup_issue', label: 'Setup Issues', icon: 'gear' },
+  {
+    kind: 'integration_suggestion',
+    label: 'Integration Suggestions',
+    icon: 'lightbulb',
+  },
 ];
 
 const SEVERITY_STYLE: Record<string, { icon: string; color: string }> = {

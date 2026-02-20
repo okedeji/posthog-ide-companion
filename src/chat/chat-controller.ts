@@ -19,6 +19,7 @@ import {
   buildAlertDiscoveryContext,
   buildExperimentDiscoveryContext,
   buildFlagDiscoveryContext,
+  buildIntegrationSuggestionContext,
 } from './prompts';
 import type { LLMProvider } from '../ai/provider';
 import type {
@@ -58,6 +59,7 @@ import type {
   AlertDiscovery,
   ExperimentDiscovery,
   FlagDiscovery,
+  IntegrationSuggestionDiscovery,
 } from '../features/discoveries/types';
 
 export type ConsentRequest = {
@@ -300,6 +302,10 @@ function buildDiscoveryContext(discovery: Discovery): string {
     case 'stale_flag':
     case 'flag_rollback':
       return buildFlagDiscoveryContext(discovery as FlagDiscovery);
+    case 'integration_suggestion':
+      return buildIntegrationSuggestionContext(
+        discovery as IntegrationSuggestionDiscovery,
+      );
     default:
       return `## Context: ${discovery.title}\n\n${discovery.description}`;
   }

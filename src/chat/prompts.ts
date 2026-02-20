@@ -5,6 +5,8 @@ import type {
   AlertDiscovery,
   ExperimentDiscovery,
   FlagDiscovery,
+  IntegrationSuggestionDiscovery,
+  IntegrationSuggestionSource,
 } from '../features/discoveries/types';
 import type {
   ErrorTrackingIssue,
@@ -434,6 +436,52 @@ export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
         'and keep only the enabled code path.',
     );
   }
+
+  return lines.join('\n');
+}
+
+export function buildIntegrationSuggestionContext(
+  discovery: IntegrationSuggestionDiscovery,
+): string {
+  const source = discovery.source as IntegrationSuggestionSource;
+
+  const lines: string[] = [
+    `## Integration Suggestion: ${discovery.title}`,
+    '',
+    discovery.description,
+    '',
+  ];
+
+  lines.push(`- File: \`${source.file}\``);
+  lines.push(`- Type: ${source.suggestionType}`);
+
+  if (source.recommendedActions.length > 0) {
+    lines.push('');
+    lines.push('Recommended actions:');
+    for (const action of source.recommendedActions) {
+      lines.push(`- ${action}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('### Investigation steps');
+  lines.push('');
+  lines.push(
+    `1. **Read the file** - open \`${source.file}\` and understand its purpose ` +
+      'and how users interact with it.',
+  );
+  lines.push(
+    '2. **Check existing patterns** - search the codebase for how PostHog is used ' +
+      'in similar files to keep the integration consistent.',
+  );
+  lines.push(
+    '3. **Propose changes** - use proposeEdit to add the PostHog integration, ' +
+      'following the patterns already established in the codebase.',
+  );
+  lines.push(
+    '4. **Dismiss** - once the integration is applied, call dismissDiscovery ' +
+      `with id \`${discovery.id}\` to remove it from the discoveries panel.`,
+  );
 
   return lines.join('\n');
 }
