@@ -8,6 +8,7 @@ export const CLOUD_URLS: Record<CloudRegion, string> = {
 export const OAUTH_CALLBACK_PATH = '/callback';
 export const OAUTH_SCOPES = [
   'user:read',
+  'organization:read',
   'project:read',
   'query:read',
   'feature_flag:read',
@@ -23,7 +24,6 @@ export const OAUTH_SCOPES = [
   'alert:read',
   'alert:write',
   'error_tracking:read',
-  'error_tracking:write',
   'session_recording:read',
   'person:read',
   'annotation:read',

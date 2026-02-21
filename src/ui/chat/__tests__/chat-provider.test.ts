@@ -75,6 +75,13 @@ function createDeps(
     getMcpClient: () => ({ tools: [], callTool: jest.fn() }) as never,
     getApiClient: () => undefined,
     getWorkspaceInfo: () => undefined,
+    getProject: () => ({
+      id: 1,
+      name: 'Test Project',
+      api_token: 'phc_test',
+      organization: 'Test Org',
+      uuid: 'uuid-1',
+    }),
     chatHistory: new ChatHistory(createMockMemento() as never),
     ...overrides,
   };

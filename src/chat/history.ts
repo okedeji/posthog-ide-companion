@@ -39,19 +39,22 @@ export class ChatHistory {
     return this._load().find((s) => s.id === id);
   }
 
-  // Upserts — replaces existing session with same ID, keeps newest-first.
   save(session: ChatSession): void {
     const sessions = this._load().filter((s) => s.id !== session.id);
     sessions.unshift(session);
     if (sessions.length > MAX_SESSIONS) {
       sessions.length = MAX_SESSIONS;
     }
-    void this._state.update(STORAGE_KEY, sessions);
+    this._persist(sessions);
   }
 
   delete(id: string): void {
     const sessions = this._load().filter((s) => s.id !== id);
-    void this._state.update(STORAGE_KEY, sessions);
+    this._persist(sessions);
+  }
+
+  private _persist(sessions: ChatSession[]): void {
+    Promise.resolve(this._state.update(STORAGE_KEY, sessions)).catch(() => {});
   }
 
   private _load(): ChatSession[] {

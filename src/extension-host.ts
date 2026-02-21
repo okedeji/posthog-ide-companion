@@ -106,6 +106,7 @@ export class ExtensionHost implements vscode.Disposable {
       getMcpClient: () => this.mcpClient,
       getApiClient: () => this.apiClient,
       getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
+      getProject: () => getActiveProject(context),
       chatHistory: new ChatHistory(context.workspaceState),
       onDiscoveryResolved: (id) => this.discoveryStore.remove(id),
     });
@@ -237,7 +238,7 @@ export class ExtensionHost implements vscode.Disposable {
     this.logger.info(`Restored project: ${project.name}`);
 
     this.startDiscoveryPolling(credentials.region, project.id);
-    void this.connectMcp(credentials.token, project.id);
+    await this.connectMcp(credentials.token, project.id);
     await this.restoreAISelection();
   }
 
@@ -394,8 +395,9 @@ export class ExtensionHost implements vscode.Disposable {
       this.updateStatusBar('project', selected.name);
       await setContextKeys(true, true);
 
+      this.chatProvider.resetController();
       this.startDiscoveryPolling(credentials.region, selected.id);
-      void this.connectMcp(credentials.token, selected.id);
+      await this.connectMcp(credentials.token, selected.id);
       this.logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
       await this.switchWorkspacePath();

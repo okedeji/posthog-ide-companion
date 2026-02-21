@@ -37,13 +37,13 @@ import type {
 } from '../ai/tools/propose-edit';
 import type { PostHogMcpClient } from '../mcp/client';
 import type { PostHogApiClient } from '../api/client';
-import { UpdateErrorStatusTool } from '../ai/tools/update-error-status';
 import { CreateAlertTool } from '../ai/tools/create-alert';
 import { UpdateAlertTool } from '../ai/tools/update-alert';
 import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
 import type { CodeSelection } from '../ui/chat/chat-provider';
 import type { WorkspaceInfo } from '../workspace/types';
+import type { PostHogProject } from '../api/schemas';
 import type { Logger } from '../utils/logger';
 import type {
   Discovery,
@@ -68,6 +68,7 @@ export type ChatControllerOptions = {
   mcpClient?: PostHogMcpClient;
   apiClient?: PostHogApiClient;
   workspaceInfo?: WorkspaceInfo;
+  project?: PostHogProject;
   onEvent: AgentEventCallback;
   onConsentRequest: (request: ConsentRequest) => void;
   onDiscoveryResolved?: (discoveryId: string) => void;
@@ -195,11 +196,6 @@ export class ChatController implements vscode.Disposable {
         new DeleteAlertTool(apiClient, (alertId) => {
           this._options.onDiscoveryResolved?.(`firing_alert:${alertId}`);
         }),
-        new UpdateErrorStatusTool(apiClient, (errorId, status) => {
-          if (status !== 'active') {
-            this._options.onDiscoveryResolved?.(`error:${errorId}`);
-          }
-        }),
       );
     }
 
@@ -208,6 +204,26 @@ export class ChatController implements vscode.Disposable {
 
   private _buildSession(): Session {
     const prompt = createSystemPromptBuilder();
+
+    prompt.addSection({
+      key: 'current-date',
+      content: `## Current Date\n\nToday is ${new Date().toISOString().split('T')[0]}. Use this for any date-relative queries (e.g. "past 7 days", "this week", "last month").`,
+      priority: 2,
+    });
+
+    if (this._options.project) {
+      const { name, id } = this._options.project;
+      prompt.addSection({
+        key: 'project-context',
+        content:
+          `## Active PostHog Project\n\n` +
+          `You are working with the PostHog project **${name}** (ID: ${id}). All MCP tool calls query this project's data.\n\n` +
+          `You cannot switch projects from this chat. If the user wants a different project, ` +
+          `tell them to use the "Switch Project" button in the PostHog sidebar or run the ` +
+          `"PostHog: Select Project" command from the Command Palette.`,
+        priority: 8,
+      });
+    }
 
     if (this._options.workspaceInfo) {
       prompt.addSection(

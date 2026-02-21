@@ -11,6 +11,7 @@ import type {
 import type { PostHogMcpClient } from '../../mcp/client';
 import type { PostHogApiClient } from '../../api/client';
 import type { WorkspaceInfo } from '../../workspace/types';
+import type { PostHogProject } from '../../api/schemas';
 import type { Discovery } from '../../features/discoveries/types';
 import type { ErrorTrackingIssue } from '../../api/schemas';
 import type { ChatHistory, ChatSessionSummary } from '../../chat/history';
@@ -71,6 +72,7 @@ export type ChatProviderDeps = {
   getMcpClient: () => PostHogMcpClient | undefined;
   getApiClient: () => PostHogApiClient | undefined;
   getWorkspaceInfo: () => WorkspaceInfo | undefined;
+  getProject: () => PostHogProject | undefined;
   chatHistory: ChatHistory;
   onDiscoveryResolved?: (discoveryId: string) => void;
 };
@@ -335,6 +337,7 @@ export class ChatViewProvider implements vscode.Disposable {
       this._postMessage({ type: 'error', message });
     }
 
+    this._saveCurrentSession();
     this._postHistory();
     this._postState();
   }
@@ -360,6 +363,7 @@ export class ChatViewProvider implements vscode.Disposable {
       mcpClient: this._deps.getMcpClient(),
       apiClient: this._deps.getApiClient(),
       workspaceInfo: this._deps.getWorkspaceInfo(),
+      project: this._deps.getProject(),
       onEvent: (event: AgentEvent) => {
         this._postMessage({ type: 'agent_event', event });
       },

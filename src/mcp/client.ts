@@ -134,7 +134,11 @@ export class PostHogMcpClient implements vscode.Disposable {
       const result = await this._client.listTools(
         cursor ? { cursor } : undefined,
       );
-      allTools.push(...result.tools.map(bridgeToolDefinition));
+      allTools.push(
+        ...result.tools
+          .filter((t) => !MCP_EXCLUDED_TOOLS.has(t.name))
+          .map(bridgeToolDefinition),
+      );
       cursor = result.nextCursor;
     } while (cursor);
 
@@ -146,6 +150,9 @@ export class PostHogMcpClient implements vscode.Disposable {
     this._onDidChangeState.fire(state);
   }
 }
+
+// Tools managed by the extension UI, not exposed to the LLM
+const MCP_EXCLUDED_TOOLS = new Set(['switch-project']);
 
 // Explicit registry of MCP tools that modify data and require user consent.
 const MCP_WRITE_TOOLS = new Set([
@@ -166,7 +173,6 @@ const MCP_WRITE_TOOLS = new Set([
   'survey-create',
   'survey-update',
   'survey-delete',
-  'switch-project',
 ]);
 
 // Both MCP and our ToolDefinition use JSON Schema, so this is a direct map

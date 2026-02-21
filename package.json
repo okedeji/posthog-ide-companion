@@ -134,34 +134,39 @@
     "menus": {
       "view/title": [
         {
-          "command": "posthog.selectProject",
+          "command": "posthog.openChat",
           "when": "view == posthog.status",
           "group": "navigation@1"
         },
         {
-          "command": "posthog.configureAI",
+          "command": "posthog.selectProject",
           "when": "view == posthog.status",
           "group": "navigation@2"
         },
         {
-          "command": "posthog.switchWorkspacePath",
+          "command": "posthog.configureAI",
           "when": "view == posthog.status",
           "group": "navigation@3"
         },
         {
-          "command": "posthog.detectWorkspace",
+          "command": "posthog.switchWorkspacePath",
           "when": "view == posthog.status",
           "group": "navigation@4"
         },
         {
-          "command": "posthog.openDashboard",
+          "command": "posthog.detectWorkspace",
           "when": "view == posthog.status",
           "group": "navigation@5"
         },
         {
-          "command": "posthog.signOut",
+          "command": "posthog.openDashboard",
           "when": "view == posthog.status",
           "group": "navigation@6"
+        },
+        {
+          "command": "posthog.signOut",
+          "when": "view == posthog.status",
+          "group": "navigation@7"
         },
         {
           "command": "posthog.refreshDiscoveries",

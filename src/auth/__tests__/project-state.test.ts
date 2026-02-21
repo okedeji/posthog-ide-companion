@@ -65,28 +65,17 @@ describe('getActiveProject / setActiveProject / clearActiveProject', () => {
     expect(getActiveProject(context)).toEqual(sampleProject);
   });
 
-  it('falls back to global default when workspace has no project', async () => {
+  it('returns undefined after clearing project', async () => {
     const context = createMockContext();
-
-    // Set a project (writes to both workspace and global)
     await setActiveProject(context, sampleProject);
-
-    // Clear workspace-level project
     await clearActiveProject(context);
-
-    // Should fall back to global
-    expect(getActiveProject(context)).toEqual(sampleProject);
+    expect(getActiveProject(context)).toBeUndefined();
   });
 
-  it('should prefer workspace project over global default', async () => {
+  it('should return the latest project after overwriting', async () => {
     const context = createMockContext();
-
-    // Set first project (writes to global)
     await setActiveProject(context, sampleProject);
-
-    // Set second project (overwrites workspace + global)
     await setActiveProject(context, sampleProject2);
-
     expect(getActiveProject(context)?.name).toBe('Other Project');
   });
 });
