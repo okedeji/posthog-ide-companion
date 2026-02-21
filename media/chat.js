@@ -7,7 +7,7 @@
     isProcessing: false,
     streamBlocks: [],   // chronological: { type:'text', content } | { type:'tool', name, pending, result?, durationMs? }
     activeTextIdx: -1,  // index of the text block currently being streamed (-1 = none)
-    consentRequest: null,
+    consentQueue: [],
     contextBanner: null,
   };
 
@@ -60,11 +60,11 @@
         break;
 
       case 'consent_request':
-        state.consentRequest = {
+        state.consentQueue.push({
           callId: msg.callId,
           toolName: msg.toolName,
           args: msg.args,
-        };
+        });
         renderConsentDialog();
         break;
 
@@ -304,11 +304,15 @@
   }
 
   function renderConsentDialog() {
-    const req = state.consentRequest;
-    if (!req) {
+    if (state.consentQueue.length === 0) {
       hideEl(consentEl);
       return;
     }
+
+    var req = state.consentQueue[0];
+    var queueLabel = state.consentQueue.length > 1
+      ? ' <span class="consent-count">(' + state.consentQueue.length + ' pending)</span>'
+      : '';
 
     var consentBody = '';
     if (req.toolName === 'proposeEdit') {
@@ -333,7 +337,7 @@
       + '</div>';
 
     consentEl.innerHTML =
-      '<div class="consent-title">' + escapeHtml(humanizeToolName(req.toolName)) + '</div>'
+      '<div class="consent-title">' + escapeHtml(humanizeToolName(req.toolName)) + queueLabel + '</div>'
       + consentBody
       + '<div class="consent-buttons consent-main-buttons">'
       + '<button class="approve">Approve</button>'
@@ -467,32 +471,33 @@
   }
 
   function handleConsent(action) {
-    if (!state.consentRequest) return;
+    if (state.consentQueue.length === 0) return;
+    var req = state.consentQueue.shift();
     vscode.postMessage({
       type: 'consent_decision',
-      callId: state.consentRequest.callId,
+      callId: req.callId,
       decision: { action: action },
     });
-    state.consentRequest = null;
-    hideEl(consentEl);
+    renderConsentDialog();
   }
 
   function handleConsentRespond(message) {
-    if (!state.consentRequest) return;
-    // Store feedback on the last pending tool block for display
+    if (state.consentQueue.length === 0) return;
+    var req = state.consentQueue.shift();
+    // Store feedback on the matching pending tool block for display
     for (var fi = state.streamBlocks.length - 1; fi >= 0; fi--) {
-      if (state.streamBlocks[fi].type === 'tool' && state.streamBlocks[fi].pending) {
-        state.streamBlocks[fi].feedback = message;
+      var block = state.streamBlocks[fi];
+      if (block.type === 'tool' && block.pending && block.name === req.toolName) {
+        block.feedback = message;
         break;
       }
     }
     vscode.postMessage({
       type: 'consent_decision',
-      callId: state.consentRequest.callId,
+      callId: req.callId,
       decision: { action: 'respond', message: message },
     });
-    state.consentRequest = null;
-    hideEl(consentEl);
+    renderConsentDialog();
     renderStreaming();
   }
 
