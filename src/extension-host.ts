@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { PostHogAuthProvider } from './auth/provider';
 import { StatusProvider } from './ui/sidebar/status-provider';
@@ -7,6 +8,7 @@ import {
   clearActiveProject,
 } from './auth/project-state';
 import { showProjectPicker } from './ui/pickers/project';
+import { showWorkspacePathPicker } from './ui/pickers/workspace-path';
 import { AUTH_PROVIDER_ID } from './auth/constants';
 import type { CloudRegion } from './auth/constants';
 import { fetchProjects } from './api/client';
@@ -24,6 +26,7 @@ import { detectWorkspace } from './workspace/detection';
 import {
   getStoredWorkspaceInfo,
   setStoredWorkspaceInfo,
+  clearStoredWorkspaceInfo,
   isWorkspaceInfoStale,
 } from './workspace/storage';
 import type { Logger } from './utils/logger';
@@ -99,8 +102,7 @@ export class ExtensionHost implements vscode.Disposable {
       extensionUri: context.extensionUri,
       logger: this.logger,
       getProvider: () => this._resolveAIProvider(),
-      getWorkspaceRoot: () =>
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      getWorkspaceRoot: () => this._getWorkspaceRoot(),
       getMcpClient: () => this.mcpClient,
       getApiClient: () => this.apiClient,
       getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
@@ -147,6 +149,9 @@ export class ExtensionHost implements vscode.Disposable {
           void vscode.env.openExternal(vscode.Uri.parse(url));
         }
       }),
+      vscode.commands.registerCommand('posthog.switchWorkspacePath', () => {
+        void this.switchWorkspacePath();
+      }),
       vscode.commands.registerCommand('posthog.detectWorkspace', () => {
         void this.triggerWorkspaceDetection();
       }),
@@ -177,8 +182,7 @@ export class ExtensionHost implements vscode.Disposable {
         }
 
         const { selection, document } = editor;
-        const workspaceRoot =
-          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const workspaceRoot = this._getWorkspaceRoot();
         const filePath = document.uri.fsPath;
         const relativePath = workspaceRoot
           ? filePath.replace(workspaceRoot + '/', '')
@@ -240,6 +244,20 @@ export class ExtensionHost implements vscode.Disposable {
   dispose(): void {
     this.stopDiscoveryPolling();
     this.disconnectMcp();
+  }
+
+  private _getWorkspaceRoot(): string | undefined {
+    const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!base) {
+      return undefined;
+    }
+
+    const sub = vscode.workspace
+      .getConfiguration('posthog')
+      .get<string>('workspacePath', '')
+      .trim();
+
+    return sub ? path.join(base, sub) : base;
   }
 
   // --- ai provider ---
@@ -380,28 +398,45 @@ export class ExtensionHost implements vscode.Disposable {
       void this.connectMcp(credentials.token, selected.id);
       this.logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
-      const aiSelection = getActiveAISelection(this.context);
-      if (aiSelection) {
-        const aiConfig = await getAIConfig(this.context.secrets);
-        const label = getModelLabel(aiSelection);
-        this.statusProvider.setAISelection(aiSelection, label);
-        if (hasApiKey(aiConfig, aiSelection.provider)) {
-          await this._refreshCachedProvider();
-          const workspaceInfo = getStoredWorkspaceInfo(this.context);
-          if (workspaceInfo) {
-            this.statusProvider.setWorkspaceDetection(
-              'complete',
-              workspaceInfo,
-            );
-            this.mergeSetupIssues(workspaceInfo.setupIssues);
-          }
-        }
-      } else {
-        await this.configureAI();
-      }
+      await this.switchWorkspacePath();
     } catch (err) {
       this.logger.error('Project selection failed', err);
       void vscode.window.showErrorMessage('PostHog: Failed to load projects.');
+    }
+  }
+
+  // --- workspace path ---
+
+  private async switchWorkspacePath(): Promise<void> {
+    const baseRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!baseRoot) {
+      return;
+    }
+
+    const sub = await showWorkspacePathPicker(baseRoot);
+    if (sub === undefined) {
+      return;
+    }
+
+    await vscode.workspace
+      .getConfiguration('posthog')
+      .update('workspacePath', sub, vscode.ConfigurationTarget.Workspace);
+    await clearStoredWorkspaceInfo(this.context);
+    if (sub) {
+      this.logger.info(`Workspace path set to: ${sub}`);
+    }
+
+    const aiSelection = getActiveAISelection(this.context);
+    if (aiSelection) {
+      const aiConfig = await getAIConfig(this.context.secrets);
+      const label = getModelLabel(aiSelection);
+      this.statusProvider.setAISelection(aiSelection, label);
+      if (hasApiKey(aiConfig, aiSelection.provider)) {
+        await this._refreshCachedProvider();
+        void this.triggerWorkspaceDetection();
+      }
+    } else {
+      await this.configureAI();
     }
   }
 
@@ -449,12 +484,10 @@ export class ExtensionHost implements vscode.Disposable {
       return;
     }
 
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    const workspaceRoot = this._getWorkspaceRoot();
+    if (!workspaceRoot) {
       return;
     }
-
-    const workspaceRoot = workspaceFolder.uri.fsPath;
 
     const detectionStatus = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
@@ -563,7 +596,7 @@ export class ExtensionHost implements vscode.Disposable {
       createFlagPoller(client, this.discoveryStore, this.logger),
     ];
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot = this._getWorkspaceRoot();
     if (workspaceRoot) {
       this.activePollers.push(
         createFileAnalysisPoller(

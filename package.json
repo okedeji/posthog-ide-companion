@@ -121,6 +121,11 @@
         "icon": "$(close)"
       },
       {
+        "command": "posthog.switchWorkspacePath",
+        "title": "PostHog: Switch Directory",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "posthog.sendToChat",
         "title": "PostHog: Send to Chat",
         "icon": "$(comment-discussion)"
@@ -139,19 +144,24 @@
           "group": "navigation@2"
         },
         {
-          "command": "posthog.detectWorkspace",
+          "command": "posthog.switchWorkspacePath",
           "when": "view == posthog.status",
           "group": "navigation@3"
         },
         {
-          "command": "posthog.openDashboard",
+          "command": "posthog.detectWorkspace",
           "when": "view == posthog.status",
           "group": "navigation@4"
         },
         {
-          "command": "posthog.signOut",
+          "command": "posthog.openDashboard",
           "when": "view == posthog.status",
           "group": "navigation@5"
+        },
+        {
+          "command": "posthog.signOut",
+          "when": "view == posthog.status",
+          "group": "navigation@6"
         },
         {
           "command": "posthog.refreshDiscoveries",
@@ -200,7 +210,18 @@
         "mac": "cmd+shift+l",
         "when": "editorTextFocus && editorHasSelection && posthog.authenticated && posthog.projectSelected"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "PostHog",
+      "properties": {
+        "posthog.workspacePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Subdirectory to treat as the workspace root (e.g. `web` or `packages/app`). Useful for monorepos. Leave empty to use the full workspace folder.",
+          "scope": "resource"
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "pnpm check-types && node esbuild.mjs",

@@ -76,7 +76,7 @@ async function getNewFiles(
 
   try {
     const out = await execGit(
-      `diff --name-only --diff-filter=A ${baselineCommit}..HEAD`,
+      `diff --name-only --diff-filter=A --relative ${baselineCommit}..HEAD`,
       cwd,
     );
     for (const f of out.split('\n').filter(Boolean)) {
@@ -87,7 +87,10 @@ async function getNewFiles(
   }
 
   try {
-    const out = await execGit('diff --name-only --diff-filter=A --cached', cwd);
+    const out = await execGit(
+      'diff --name-only --diff-filter=A --relative --cached',
+      cwd,
+    );
     for (const f of out.split('\n').filter(Boolean)) {
       results.add(f);
     }
