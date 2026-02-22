@@ -124,7 +124,7 @@ export class ChatViewProvider implements vscode.Disposable {
   }
 
   loadCodeContext(context: CodeSelection): void {
-    this.open();
+    this._revealOrCreate();
 
     const controller = this._ensureController();
     if (!controller) {
@@ -142,7 +142,7 @@ export class ChatViewProvider implements vscode.Disposable {
   }
 
   loadDiscoveryContext(discovery: Discovery): void {
-    this.open();
+    this._revealOrCreate();
 
     const controller = this._ensureController();
     if (!controller) {
@@ -167,6 +167,26 @@ export class ChatViewProvider implements vscode.Disposable {
       d.dispose();
     }
     this._disposables = [];
+  }
+
+  private _revealOrCreate(): void {
+    if (this._panel) {
+      this._panel.reveal();
+      return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      ChatViewProvider.viewType,
+      'PostHog Companion',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+      },
+    );
+
+    this._initPanel(panel);
+    void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
   }
 
   private _initPanel(panel: vscode.WebviewPanel): void {
