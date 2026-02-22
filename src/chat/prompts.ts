@@ -16,105 +16,106 @@ import type {
 } from '../api/schemas';
 
 // Chat-specific additions to the system prompt. The foundation prompt (priority 0)
-// covers core behavior and tool usage guidelines. The tools section (priority 5)
-// lists available tools from the registry. This section adds chat workflows.
-export const CHAT_INSTRUCTIONS = `## Capabilities
+// covers hard rules and tool philosophy. The tools section (priority 5) lists
+// available tools from the registry. This section adds chat identity, workflows,
+// and PostHog-specific behavioral rules.
+export const CHAT_INSTRUCTIONS = `## Identity
+
+You are a PostHog team member helping a developer from inside their IDE. Speak as an insider — use "we", "our", and "us" when referring to PostHog. You know the product deeply and care about getting the developer's integration right.
+
+## How to Search Docs
+
+The foundation rules require searching docs before any PostHog question. Here is how to search well:
+
+- **Always search for the latest approach.** PostHog evolves fast — methods, config options, and best practices change frequently. Include the current year or date in your query to bias toward the latest documentation. Do not settle for any approach that works; find the most current recommended way.
+- **Search thoroughly.** Include all relevant context in your query: the error message, SDK name, framework, language, and specific feature. The richer the query, the better the result.
+- **Search with facts, not assumptions.** Only include information you actually have from the user, the codebase, or tool results. Do not inject guessed method names or config options into the query hoping they exist.
+- **Refine when needed.** If the first search returns a vague or generic result, search again with different terms. Do not settle for a generic answer when a specific one exists.
+
+## Capabilities
 
 You can help with:
 
-- **Analytics** - query event counts, trends, funnels, retention, and run HogQL
-- **Error investigation** - analyze production errors, read source code, propose fixes. Note: error status (resolve, suppress) cannot be changed from this chat due to a PostHog API limitation. After fixing the code locally, tell the user to resolve the error in the PostHog web UI.
-- **Feature flags** - create flags in PostHog, add the flag check in code, find references, toggle or update existing ones
-- **Experiments** - create A/B experiments in PostHog, wrap the feature in code with variant checks, launch, and conclude
-- **Insights and dashboards** - save query results as named charts, create dashboards, and attach insights to them
-- **Surveys** - create in-app surveys (popover, widget, or API), configure questions, launch and stop them
-- **Codebase** - search, read, and understand the project structure
-- **Documentation** - search PostHog docs for integration guides and API reference
-- **Setup** - check environment configuration and fix PostHog integration issues
+- **Analytics** — query events, trends, funnels, retention, and run HogQL
+- **Error investigation** — analyze production errors, trace to source code, propose fixes. (Error status cannot be changed from chat — tell the user to resolve errors in the PostHog web UI after fixing code.)
+- **Feature flags** — create flags in PostHog, add flag checks in code, toggle or update existing ones
+- **Experiments** — create A/B experiments, add variant checks in code, launch, and conclude
+- **Insights and dashboards** — save queries as charts, create dashboards, attach insights
+- **Surveys** — create in-app surveys (popover, widget, or API), configure questions, launch and stop
+- **Codebase** — search, read, and understand the project structure
+- **Documentation** — search PostHog docs for integration guides and API reference
+- **Setup** — check environment configuration and fix PostHog integration issues
 
----
+## Handling Requests
 
-### Write requests (create, update, launch, conclude, fix)
+### Write requests (create, update, fix, launch, conclude)
 
-Write requests touch both PostHog and the codebase. Always treat them as end-to-end tasks.
+Write requests change PostHog state and/or the codebase. Always treat them as end-to-end tasks.
 
-**Research first — before planning or acting:**
-1. **Search docs** (docs-search) — understand the PostHog concept, API, and SDK patterns involved.
-2. **Check PostHog** (entity-search, MCP tools) — find existing flags, experiments, events, and dashboards relevant to the request.
-3. **Read the codebase** — find where the feature lives, how existing flags or events are used, what naming patterns are followed.
+**1. Research** — before planning:
+- Search docs (\`docs-search\`) for the latest recommended approach to the PostHog concept, API, and SDK patterns involved. Include the current date in your query.
+- Check PostHog (\`entity-search\`, MCP tools) for existing flags, experiments, events, dashboards.
+- Read the codebase for where the feature lives, what patterns are followed, what naming conventions exist.
 
-**Plan and confirm — before executing:**
-4. **Lay out the full end-to-end plan** — what will be created or changed in PostHog (flag key, variants, targeting), and what code changes are needed (where the flag check goes, what the if/else branches do, which files change).
-5. **Ask the user to confirm** — present the plan clearly and wait for approval before doing anything.
+**2. Plan** — before executing:
+- Present the full end-to-end plan: what will be created or changed in PostHog (flag key, variants, targeting) and what code changes are needed (which files, what the diffs look like).
+- Wait for the user to confirm. Do not execute until approved.
 
-**Execute — after confirmation:**
-6. **PostHog first** — use the write tools (createFeatureFlag, createExperiment, etc.) to make the PostHog change. These require user consent and will prompt before running.
-7. **Then code** — use proposeEdit to show each code change as a diff. The user reviews and accepts each one.
-8. **Report** — summarise what was done: PostHog URL, files changed, what to test next.
-
----
+**3. Execute** — after confirmation:
+- PostHog first: use write tools (\`createFeatureFlag\`, \`createExperiment\`, etc.). These prompt for consent.
+- Code second: use \`proposeEdit\` for each file change. The user reviews and accepts each diff.
+- Report: summarize what was done — PostHog URL, files changed, what to test next.
 
 ### Read requests (query, investigate, explain, find)
 
-Read requests need research, not action. Match the tools to the question — do not run through every step on every request.
+Read requests need information, not action. Match tools to the question type:
 
-- **Docs question** ("how does X work?", "what operators can I use?") — docs-search is enough. No need to pull live data or open the codebase.
-- **Live data question** ("how many users did X last week?", "is this flag enabled?") — reach for the PostHog MCP tools and answer from the data. Only dig into the codebase if the question is also about how the code works.
-- **Code question** ("where is this flag used?", "how is this event captured?") — search the codebase. Pull live PostHog data too if it adds useful context.
-- **Investigation** ("why is this error happening?") — use all three: docs for context, PostHog for the live details, codebase to find where it breaks.
+| Question | Approach |
+|---|---|
+| "How does X work?" / "What operators can I use?" | \`docs-search\` is enough — search for the latest docs on the topic |
+| "How many users did X last week?" / "Is this flag enabled?" | PostHog MCP tools; only check code if the question involves implementation |
+| "Where is this flag used?" / "How is this event captured?" | Search the codebase; pull PostHog data if it adds useful context |
+| "Why is this error happening?" | All three: latest docs for context, PostHog for live details, codebase for root cause |
 
-Give a specific answer — reference file paths, line numbers, event names, flag keys, and PostHog URLs. Not generic advice.
+Give specific answers — file paths, line numbers, event names, flag keys, PostHog URLs. Not generic advice.
 
----
+## Environment Variables
 
-### Always
+You have \`checkEnvKeys\` (check which keys exist) and \`setEnvValues\` (create or update key-value pairs). These work with any env file: \`.env\`, \`.env.local\`, \`.env.development\`, \`.env.production\`, etc.
 
-- Act like you are a knowledgeable PostHog representative that is familiar with the system. You are not an outsider in PostHog, you are a staff. Address PostHog as "we", "us", "the" make sure you are inclusive
-- **ALWAYS search docs first. No exceptions.** Before answering any PostHog question, call docs-search. Do not rely on your general knowledge about PostHog, even if you think you know the answer. Your training data may be outdated or wrong. The docs are the single source of truth. If you skip this step and get something wrong, the user loses trust in the entire tool.
-- **Search docs thoroughly, not lazily.** Do not search with a vague one-liner. Include all the relevant context you have gathered so far: the error message, the SDK, the framework, the language, the specific feature. The more context you feed into docs-search, the better the result. Search for the best and most current approach, not just any approach that might work. If the first search does not give you a clear answer, refine your query and search again with different terms. Do not settle for a generic result when a specific one exists.
-- **Search with facts, not assumptions.** When constructing your docs-search query, only include information you actually have from the user, the codebase, or tool results. Do not inject guessed method names, config options, or API details into the query hoping they exist. Ask for the best approach given the real situation, not for confirmation of something you assumed.
-- You don't have to explose how you do things, just briefly walk them through your process.
-- Explain briefly what you are doing and why as you use tools.
-- Ask when the request is ambiguous — clarify rather than guess.
-- Never make code changes without going through proposeEdit so the user can review the diff.
+- **Use them confidently.** When a setup issue or integration requires env vars, check and set them. Do not ask the user to manually edit env files when you can do it.
+- **Values stay safe.** \`checkEnvKeys\` only reports "present" or "missing". \`setEnvValues\` confirms which keys were set. No secret values are exposed.
+- **Pick the right file.** Check the codebase to see which env file the project loads (Next.js uses \`.env.local\`, Vite uses \`.env\`). Do not assume \`.env\` is always correct.
 
-### Environment variables
+## Tool Defaults
 
-You have two dedicated tools for working with env files: **checkEnvKeys** (read which keys exist) and **setEnvValues** (create or update key-value pairs). These work with any env file: \`.env\`, \`.env.local\`, \`.env.development\`, \`.env.production\`, etc.
+- **Always set \`filterTestAccounts: false\`** on any MCP tool that accepts this parameter. Developers in the IDE need to see their own test events, errors, and flag evaluations. Only filter test accounts if the user explicitly asks for production-only data.
 
-- **Use these tools confidently.** When a setup issue or integration requires env vars, check if they exist and set them as needed. Do not ask the user to manually edit env files when you can do it.
-- **Values stay safe.** checkEnvKeys only reports "present" or "missing", never actual values. setEnvValues writes values but only confirms which keys were set. No secrets are exposed back to the LLM.
-- **Pick the right file.** Check the codebase to see which env file the project actually loads (e.g. Next.js uses \`.env.local\`, Vite uses \`.env\`). Do not assume \`.env\` is always correct.
+## Communication Style
 
-### Tool defaults
-
-- **Always include test accounts.** When calling any MCP tool that accepts a \`filterTestAccounts\` parameter, set it to \`false\` so results include test/development data. Developers working in their IDE need to see their own test events, errors, and flag evaluations. Only filter them out if the user explicitly asks for production-only data.
-
-### Tool integrity
-
-- **Always call tools. Never fake results.** If you need data from PostHog, call the tool. Never fabricate tool output, invent data, or summarize what a tool "would" return. If a tool fails, say it failed. If you cannot find data, say you could not find it.
-- **Never present guesses as facts.** If you are not sure about something and there is no tool to verify it, say so. Do not present assumptions as if they came from a tool call.
-- **Do not paraphrase tool calls you did not make.** Never say "I checked and found..." or "Looking at the data..." unless you actually called a tool and received a result. The user can see your tool calls, so discrepancies are immediately obvious.`;
+- Do not over-narrate your process. Briefly note what you are doing, then show results.
+- Never present guesses as facts. If you are unsure and cannot verify with a tool, say so.
+- Never paraphrase tool calls you did not make. Do not say "I checked and found..." unless you actually called a tool and received a result.`;
 
 export function buildErrorDiscoveryContext(discovery: ErrorDiscovery): string {
   const source = discovery.source as ErrorTrackingIssue;
 
   const lines: string[] = [
-    `## Investigating: ${discovery.title}`,
+    `## Task: Investigate Production Error`,
     '',
-    'The user wants help with this production error.',
+    `**${discovery.title}**`,
     '',
   ];
 
   const details: string[] = [];
-  details.push(`Error ID: ${source.id}`);
+  details.push(`Error ID: \`${source.id}\``);
   if (source.status) {
     details.push(`Status: ${source.status}`);
   }
   if (source.aggregations) {
-    details.push(`Occurrences: ${source.aggregations.occurrences}`);
-    details.push(`Affected users: ${source.aggregations.users}`);
-    details.push(`Sessions: ${source.aggregations.sessions}`);
+    details.push(
+      `Occurrences: ${source.aggregations.occurrences} | Users: ${source.aggregations.users} | Sessions: ${source.aggregations.sessions}`,
+    );
   }
   if (source.library) {
     details.push(`Library: \`${source.library}\``);
@@ -125,8 +126,9 @@ export function buildErrorDiscoveryContext(discovery: ErrorDiscovery): string {
   if (source.source) {
     details.push(`Source: \`${source.source}\``);
   }
-  details.push(`First seen: ${source.first_seen}`);
-  details.push(`Last seen: ${source.last_seen}`);
+  details.push(
+    `First seen: ${source.first_seen} | Last seen: ${source.last_seen}`,
+  );
 
   for (const detail of details) {
     lines.push(`- ${detail}`);
@@ -147,40 +149,38 @@ export function buildErrorDiscoveryContext(discovery: ErrorDiscovery): string {
   }
 
   lines.push('');
-
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    '1. **Search PostHog docs** - use docs-search to look up the error type, ' +
-      'the library or SDK involved, and any relevant integration guides. ' +
-      'This gives you the PostHog context needed to understand how this error relates to the project.',
+    '1. **Search docs** — call `docs-search` with the error type, library/SDK name, ' +
+      'and relevant keywords. Include the current date to get the latest docs. ' +
+      'Look for the most current guidance on this error type.',
   );
   lines.push(
-    `2. **Fetch error details from PostHog** - use the PostHog MCP tools to look up this error ` +
-      `by its ID (\`${source.id}\`). Get the full error details, stack traces, and any additional ` +
-      'context that PostHog has. This is live data — use it.',
+    `2. **Fetch error from PostHog** — use the PostHog MCP tools to look up error ID ` +
+      `\`${source.id}\`. Get the full error details, recent stack traces, and event properties.`,
   );
 
   if (source.function || source.library) {
     lines.push(
-      '3. **Search the codebase** - find the function or library mentioned above, ' +
-        'read the surrounding code, and figure out how it could fail.',
+      '3. **Search the codebase** — find the function or library mentioned above, ' +
+        'read the surrounding code, and determine how it could fail.',
     );
   } else if (errorMessage) {
     lines.push(
-      '3. **Search the codebase** - search for the error message text ' +
+      '3. **Search the codebase** — search for the error message text ' +
         'or related error handling patterns to find where this originates.',
     );
   } else {
     lines.push(
-      '3. **Gather more context** - ask the user for more details, or search the codebase ' +
+      '3. **Gather more context** — ask the user for more details, or search the codebase ' +
         'for related error patterns to narrow things down.',
     );
   }
 
   lines.push(
-    '4. **Explain and fix** - explain the root cause using what you learned from the docs, ' +
-      'the PostHog data, and the code, then propose a fix if you have enough context.',
+    '4. **Explain and fix** — synthesize what you learned from docs, PostHog data, and code. ' +
+      'Explain the root cause, then propose a fix with `proposeEdit` if you have enough context.',
   );
 
   return lines.join('\n');
@@ -243,7 +243,9 @@ export function buildSetupIssueDiscoveryContext(
   const source = discovery.source as SetupIssueSource;
 
   const lines: string[] = [
-    `## Setup Issue: ${discovery.title}`,
+    `## Task: Fix Setup Issue`,
+    '',
+    `**${discovery.title}**`,
     '',
     `Discovery ID: \`${discovery.id}\``,
     '',
@@ -252,29 +254,29 @@ export function buildSetupIssueDiscoveryContext(
 
   if (source.evidence.length > 0) {
     lines.push('');
-    lines.push('Evidence files:');
+    lines.push('Evidence:');
     for (const file of source.evidence) {
       lines.push(`- ${file}`);
     }
   }
 
   lines.push('');
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    '1. **Search PostHog docs** - use docs-search to look up the relevant setup topic, ' +
-      'SDK configuration, or integration guide. Understand the correct setup before suggesting changes.',
+    '1. **Search docs** — call `docs-search` for the relevant setup topic and SDK configuration. ' +
+      'Include the current date to get the latest recommended setup approach.',
   );
   lines.push(
-    '2. **Read the evidence files** - examine the files listed above to understand ' +
+    '2. **Read the evidence files** — examine the files listed above to understand ' +
       'the current state of the configuration.',
   );
   lines.push(
-    '3. **Explain and fix** - explain what needs to change based on the docs and the code, ' +
-      'then propose the fix using proposeEdit.',
+    '3. **Explain and fix** — explain what needs to change based on the latest docs and the code, ' +
+      'then propose the fix using `proposeEdit`.',
   );
   lines.push(
-    '4. **Dismiss** - once all fixes have been applied, call dismissDiscovery ' +
+    `4. **Dismiss** — once all fixes are applied and accepted, call \`dismissDiscovery\` ` +
       `with id \`${discovery.id}\` to remove it from the discoveries panel.`,
   );
 
@@ -285,9 +287,9 @@ export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
   const source = discovery.source as Alert;
 
   const lines: string[] = [
-    `## Alert Firing: ${discovery.title}`,
+    `## Task: Investigate Firing Alert`,
     '',
-    'This PostHog alert is currently in a FIRING state.',
+    `**${discovery.title}**`,
     '',
   ];
 
@@ -295,7 +297,7 @@ export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
   details.push(`Alert ID: ${source.id}`);
   details.push(`State: ${source.state}`);
   if (source.condition) {
-    details.push(`Condition type: ${source.condition.type}`);
+    details.push(`Condition: ${source.condition.type}`);
   }
   if (source.threshold?.configuration?.bounds) {
     const bounds = source.threshold.configuration.bounds;
@@ -318,27 +320,27 @@ export function buildAlertDiscoveryContext(discovery: AlertDiscovery): string {
   }
 
   lines.push('');
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    '1. **Check the insight** - use the PostHog MCP tools to look up the insight ' +
+    '1. **Check the insight** — use the PostHog MCP tools to look up the insight ' +
       'associated with this alert and understand what metric is being tracked.',
   );
   lines.push(
-    '2. **Review recent data** - query the relevant events or trends to understand ' +
+    '2. **Review recent data** — query the relevant events or trends to understand ' +
       'why the threshold was crossed.',
   );
   lines.push(
-    '3. **Search the codebase** - if the alert relates to errors or specific features, ' +
+    '3. **Search the codebase** — if the alert relates to errors or specific features, ' +
       'search the code for the relevant event names or functions.',
   );
   lines.push(
-    '4. **Explain and recommend** - explain what triggered the alert and suggest ' +
-      'actions: fix the root cause, adjust the threshold, or snooze the alert.',
+    '4. **Explain and recommend** — explain what triggered the alert and suggest ' +
+      'next steps: fix the root cause, adjust the threshold, or snooze the alert.',
   );
   lines.push(
-    `5. **Resolve** - once the issue is addressed, use updateAlert to disable or snooze the alert ` +
-      `(ID: ${source.id}), or deleteAlert to remove it. This will clear it from the discoveries panel.`,
+    `5. **Resolve** — once addressed, use \`updateAlert\` to disable or snooze the alert ` +
+      `(ID: ${source.id}), or \`deleteAlert\` to remove it. This clears it from the discoveries panel.`,
   );
 
   return lines.join('\n');
@@ -350,9 +352,9 @@ export function buildExperimentDiscoveryContext(
   const source = discovery.source as Experiment;
 
   const lines: string[] = [
-    `## Experiment Result: ${discovery.title}`,
+    `## Task: Review Experiment Result`,
     '',
-    'This experiment has reached a conclusion.',
+    `**${discovery.title}**`,
     '',
   ];
 
@@ -384,23 +386,27 @@ export function buildExperimentDiscoveryContext(
   }
 
   lines.push('');
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    '1. **Review the experiment** - use the PostHog MCP tools to get full experiment ' +
-      'details and results data.',
+    '1. **Review the experiment** — use the PostHog MCP tools to get full experiment ' +
+      'details, including statistical significance and results per variant.',
   );
   lines.push(
-    `2. **Find flag usage in code** - search the codebase for the feature flag key ` +
-      `\`${source.feature_flag_key}\` to understand what the experiment controls.`,
+    `2. **Find flag usage in code** — search the codebase for \`${source.feature_flag_key}\` ` +
+      'to understand what the experiment controls and which code paths are affected.',
   );
   lines.push(
-    '3. **Recommend next steps** - based on the conclusion, suggest whether to ' +
+    '3. **Search docs** — call `docs-search` for the latest best practices on concluding experiments ' +
+      'and shipping variants. Include the current date in your query.',
+  );
+  lines.push(
+    '4. **Recommend next steps** — based on the results, conclusion, and current best practices, suggest whether to ' +
       'ship the winning variant, roll back, or extend the experiment.',
   );
   lines.push(
-    `4. **Resolve** - after shipping or rolling back, use updateExperiment to conclude the experiment ` +
-      `(ID: ${source.id}). This will clear it from the discoveries panel.`,
+    `5. **Resolve** — after shipping or rolling back, use \`updateExperiment\` to conclude the ` +
+      `experiment (ID: ${source.id}). This clears it from the discoveries panel.`,
   );
 
   return lines.join('\n');
@@ -411,14 +417,18 @@ export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
   const isRollback = discovery.kind === 'flag_rollback';
 
   const heading = isRollback
-    ? `## Flag Rolled Back: ${source.key}`
-    : `## Stale Flag: ${source.key}`;
+    ? `## Task: Investigate Flag Rollback`
+    : `## Task: Clean Up Stale Flag`;
+
+  const subtitle = isRollback
+    ? `**Flag \`${source.key}\` was automatically rolled back**`
+    : `**Flag \`${source.key}\` has been at 100% rollout for over 30 days**`;
 
   const intro = isRollback
-    ? 'This feature flag was automatically rolled back. This usually means rollback conditions were triggered.'
-    : 'This feature flag has been at 100% rollout for over 30 days and may be ready for cleanup.';
+    ? 'Rollback conditions were triggered. Investigate what went wrong.'
+    : 'This flag may be ready for cleanup — the code path can likely be shipped unconditionally.';
 
-  const lines: string[] = [heading, '', intro, ''];
+  const lines: string[] = [heading, '', subtitle, '', intro, ''];
 
   const details: string[] = [];
   details.push(`Flag ID: ${source.id}`);
@@ -439,42 +449,50 @@ export function buildFlagDiscoveryContext(discovery: FlagDiscovery): string {
   }
 
   lines.push('');
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    `1. **Find flag usage in code** - search the codebase for \`${source.key}\` ` +
+    `1. **Find flag usage in code** — search the codebase for \`${source.key}\` ` +
       'to find all places where this flag is checked.',
   );
 
   if (isRollback) {
     lines.push(
-      '2. **Investigate the rollback** - use PostHog MCP tools to check the flag details ' +
+      '2. **Investigate the rollback** — use PostHog MCP tools to check the flag details ' +
         'and understand what rollback conditions were set.',
     );
     lines.push(
-      '3. **Check for issues** - look at error tracking and relevant events around the time ' +
+      '3. **Check for issues** — look at error tracking and relevant events around the time ' +
         'of the rollback to understand what went wrong.',
     );
     lines.push(
-      '4. **Recommend action** - suggest whether to fix the underlying issue and re-enable, ' +
+      '4. **Search docs** — call `docs-search` for the latest guidance on feature flag rollbacks ' +
+        'and recovery. Include the current date in your query.',
+    );
+    lines.push(
+      '5. **Recommend action** — suggest whether to fix the underlying issue and re-enable, ' +
         'or fully revert the feature.',
     );
     lines.push(
-      `5. **Resolve** - once reverted or fixed, use updateFeatureFlag to deactivate the flag ` +
-        `(ID: ${source.id}). This will clear it from the discoveries panel.`,
+      `6. **Resolve** — once reverted or fixed, use \`updateFeatureFlag\` to deactivate the flag ` +
+        `(ID: ${source.id}). This clears it from the discoveries panel.`,
     );
   } else {
     lines.push(
-      '2. **Assess removability** - determine if the flag check can be safely removed ' +
+      '2. **Assess removability** — determine if the flag check can be safely removed ' +
         'by shipping the code path unconditionally.',
     );
     lines.push(
-      '3. **Propose cleanup** - if safe, use proposeEdit to remove the flag checks ' +
+      '3. **Search docs** — call `docs-search` for the latest guidance on cleaning up feature flags. ' +
+        'Include the current date in your query.',
+    );
+    lines.push(
+      '4. **Propose cleanup** — if safe, use `proposeEdit` to remove the flag checks ' +
         'and keep only the enabled code path.',
     );
     lines.push(
-      `4. **Resolve** - after cleanup, use updateFeatureFlag to deactivate the flag ` +
-        `(ID: ${source.id}). This will clear it from the discoveries panel.`,
+      `5. **Resolve** — after cleanup, use \`updateFeatureFlag\` to deactivate the flag ` +
+        `(ID: ${source.id}). This clears it from the discoveries panel.`,
     );
   }
 
@@ -487,32 +505,37 @@ export function buildIntegrationSuggestionContext(
   const source = discovery.source as IntegrationSuggestionSource;
 
   const lines: string[] = [
-    `## Integration Suggestion: ${discovery.title}`,
+    `## Task: Add PostHog Integration`,
+    '',
+    `**${discovery.title}**`,
     '',
     discovery.description,
     '',
+    `- File: \`${source.file}\``,
+    `- Type: ${source.suggestionType}`,
   ];
 
-  lines.push(`- File: \`${source.file}\``);
-  lines.push(`- Type: ${source.suggestionType}`);
-
   lines.push('');
-  lines.push('### Investigation steps');
+  lines.push('### Steps');
   lines.push('');
   lines.push(
-    `1. **Read the file** - open \`${source.file}\` and understand its purpose ` +
+    `1. **Read the file** — open \`${source.file}\` and understand its purpose ` +
       'and how users interact with it.',
   );
   lines.push(
-    '2. **Check existing patterns** - search the codebase for how PostHog is used ' +
+    '2. **Check existing patterns** — search the codebase for how PostHog is used ' +
       'in similar files to keep the integration consistent.',
   );
   lines.push(
-    '3. **Propose changes** - use proposeEdit to add the PostHog integration, ' +
-      'following the patterns already established in the codebase.',
+    '3. **Search docs** — call `docs-search` for the latest recommended integration pattern ' +
+      'for this type of file. Include the current date to get up-to-date guidance.',
   );
   lines.push(
-    '4. **Dismiss** - once the integration is applied, call dismissDiscovery ' +
+    '4. **Propose changes** — use `proposeEdit` to add the PostHog integration, ' +
+      'following both the latest docs and the patterns already established in the codebase.',
+  );
+  lines.push(
+    `5. **Dismiss** — once the integration is applied and accepted, call \`dismissDiscovery\` ` +
       `with id \`${discovery.id}\` to remove it from the discoveries panel.`,
   );
 

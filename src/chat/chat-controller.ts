@@ -207,7 +207,7 @@ export class ChatController implements vscode.Disposable {
 
     prompt.addSection({
       key: 'current-date',
-      content: `## Current Date\n\nToday is ${new Date().toISOString().split('T')[0]}. Use this for any date-relative queries (e.g. "past 7 days", "this week", "last month").`,
+      content: `## Current Date\n\nToday is ${new Date().toISOString().split('T')[0]}. Use this for date-relative queries (e.g. "past 7 days", "this week") and include it in \`docs-search\` queries to get the latest documentation.`,
       priority: 2,
     });
 

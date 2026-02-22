@@ -509,6 +509,7 @@ export class ExtensionHost implements vscode.Disposable {
         },
         async (progress) => {
           return detectWorkspace(provider, workspaceRoot, {
+            mcpClient: this.mcpClient,
             onEvent: (event) => {
               if (event.type === 'tool_call_start') {
                 const message = formatToolProgress(
@@ -516,6 +517,7 @@ export class ExtensionHost implements vscode.Disposable {
                   String(
                     event.call.arguments['path'] ??
                       event.call.arguments['pattern'] ??
+                      event.call.arguments['query'] ??
                       '',
                   ),
                 );
@@ -714,6 +716,8 @@ function formatToolProgress(toolName: string, arg: string): string {
       return arg ? `Searching for "${arg}"` : 'Searching code';
     case 'checkEnvKeys':
       return 'Checking environment';
+    case 'docs-search':
+      return arg ? `Searching docs for "${arg}"` : 'Searching docs';
     default:
       return `Running ${toolName}`;
   }

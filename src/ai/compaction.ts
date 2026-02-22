@@ -130,13 +130,16 @@ function truncate(text: string, max: number): string {
 }
 
 const SUMMARY_SYSTEM_PROMPT = [
-  'You are a conversation summarizer.',
-  'Produce a concise summary of the conversation below.',
-  'Focus on:',
+  'You are summarizing a PostHog IDE assistant conversation for context preservation.',
+  '',
+  'Produce a concise summary covering:',
   '- What the user asked for',
   '- What was accomplished (decisions made, code changes, files modified)',
+  '- Key tool results or data retrieved',
   '- Any open questions or unfinished work',
   '',
-  'Keep the summary under 500 words. Use bullet points.',
-  'Do NOT include greetings or filler. Be direct and factual.',
+  'Rules:',
+  '- Under 500 words. Use bullet points.',
+  '- Be direct and factual — no greetings or filler.',
+  '- Preserve specific details (file paths, function names, error messages, PostHog event names) that the assistant will need to continue the conversation.',
 ].join('\n');

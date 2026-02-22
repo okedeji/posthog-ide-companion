@@ -39,9 +39,9 @@ export function createToolRegistry(tools: Tool[]): ToolRegistry {
 }
 
 const CATEGORY_LABELS: Record<ToolCategory, string> = {
-  workspace: 'Workspace - for exploring the codebase',
-  action: 'Actions - require user approval',
-  posthog: 'PostHog',
+  workspace: 'Workspace — explore and search the codebase',
+  action: 'Actions — require user approval before execution',
+  posthog: 'PostHog — query project data via MCP',
 };
 
 // Generates a prompt section listing all tools, grouped by category.
@@ -78,9 +78,9 @@ function buildToolsPromptSection(tools: Tool[]): string {
   const posthog = grouped.get('posthog') ?? [];
   if (posthog.length > 0) {
     lines.push(
-      `**${CATEGORY_LABELS.posthog}** (${posthog.length} tools) - ` +
-        'query analytics data, manage feature flags, search docs, and more. ' +
-        "These connect to the user's PostHog project via MCP.",
+      `**${CATEGORY_LABELS.posthog}** (${posthog.length} tools) — ` +
+        'search docs, query analytics, manage feature flags/experiments, and more. ' +
+        'Always start with `docs-search` before answering PostHog questions.',
     );
     lines.push('');
   }

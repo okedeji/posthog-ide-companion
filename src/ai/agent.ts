@@ -230,8 +230,8 @@ async function forceTextResponse(
     role: 'user',
     content:
       'You have reached the maximum number of tool calls. ' +
-      'Please summarize what you have found and accomplished so far ' +
-      'based on the tool results above.',
+      'Summarize what you found and accomplished so far based on the tool results above. ' +
+      'If work is incomplete, clearly state what remains.',
   });
 
   const generateOptions: LLMGenerateOptions = {
