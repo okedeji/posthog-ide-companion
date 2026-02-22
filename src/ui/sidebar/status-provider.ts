@@ -88,6 +88,7 @@ export class StatusProvider implements vscode.TreeDataProvider<StatusItem> {
         description: this._region?.toUpperCase() ?? 'Unknown',
         icon: 'globe',
       },
+      ...this._buildWorkspacePathItem(),
       {
         label: 'AI Model',
         description: this._aiSelection
@@ -108,6 +109,20 @@ export class StatusProvider implements vscode.TreeDataProvider<StatusItem> {
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
+  }
+
+  private _buildWorkspacePathItem(): StatusItem[] {
+    const sub = (
+      vscode.workspace
+        .getConfiguration('posthog')
+        .get<string>('workspacePath') ?? ''
+    ).trim();
+    if (!sub) {
+      return [];
+    }
+    return [
+      { label: 'Directory', description: sub, icon: 'root-folder-opened' },
+    ];
   }
 
   private _formatWorkspaceSummary(): string {
