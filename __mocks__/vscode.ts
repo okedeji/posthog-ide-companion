@@ -75,6 +75,7 @@ export const workspace = {
     get: jest.fn(() => undefined),
     update: jest.fn(async () => undefined),
   })),
+  registerTextDocumentContentProvider: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
 export enum ConfigurationTarget {

@@ -95,6 +95,34 @@ describe('ProposeEditTool', () => {
       expect(updated).toBe('const x = 42;\nconst y = 2;\n');
     });
 
+    it('should use virtual URI for the proposed side of the diff', async () => {
+      const filePath = path.join(tmpDir, 'app.ts');
+      await fs.writeFile(filePath, 'const x = 1;\n');
+
+      const tool = new ProposeEditTool(tmpDir, approveAll);
+      await tool.execute(
+        makeCall({
+          path: 'app.ts',
+          oldContent: 'const x = 1;',
+          newContent: 'const x = 2;',
+        }),
+      );
+
+      const diffCall = mockExecuteCommand.mock.calls.find(
+        (c: unknown[]) => c[0] === 'vscode.diff',
+      );
+      expect(diffCall).toBeDefined();
+
+      // left side is the real file (realpath may add /private on macOS)
+      const leftUri = diffCall![1] as vscode.Uri;
+      expect(leftUri.toString()).toContain('app.ts');
+
+      // right side is a virtual URI
+      const rightUri = diffCall![2] as vscode.Uri;
+      expect(rightUri.toString()).toContain('posthog-proposed://edit/');
+      expect(rightUri.toString()).toMatch(/\/app\.ts$/);
+    });
+
     it('should not write file when rejected', async () => {
       const filePath = path.join(tmpDir, 'app.ts');
       await fs.writeFile(filePath, 'const x = 1;\n');
@@ -281,7 +309,7 @@ describe('ProposeEditTool', () => {
   });
 
   describe('dispose', () => {
-    it('should clean up temp files', async () => {
+    it('should clean up without throwing', async () => {
       await fs.writeFile(path.join(tmpDir, 'app.ts'), 'const x = 1;');
 
       const tool = new ProposeEditTool(tmpDir, approveAll);
@@ -294,7 +322,6 @@ describe('ProposeEditTool', () => {
       );
 
       await tool.dispose();
-      // No assertion - just verifying dispose doesn't throw
     });
   });
 });

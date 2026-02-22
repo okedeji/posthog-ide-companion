@@ -1,6 +1,5 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
-import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveSafePath, isSensitiveFile } from './utils';
@@ -11,7 +10,6 @@ export type EditProposal = {
   filePath: string;
   description: string;
   isNewFile: boolean;
-  tempFile: string;
 };
 
 export type EditApprovalResult =
@@ -23,6 +21,28 @@ export type EditApprovalResult =
 export type EditApprovalCallback = (
   proposal: EditProposal,
 ) => Promise<EditApprovalResult>;
+
+const SCHEME = 'posthog-proposed';
+const _contentStore = new Map<string, string>();
+let _providerRegistered = false;
+
+function ensureProvider(): void {
+  if (_providerRegistered) return;
+  _providerRegistered = true;
+  vscode.workspace.registerTextDocumentContentProvider(SCHEME, {
+    provideTextDocumentContent(uri) {
+      return _contentStore.get(uri.toString()) ?? '';
+    },
+  });
+}
+
+function createContentUri(filePath: string, content: string): vscode.Uri {
+  const uri = vscode.Uri.parse(
+    `${SCHEME}://edit/${crypto.randomUUID()}/${filePath}`,
+  );
+  _contentStore.set(uri.toString(), content);
+  return uri;
+}
 
 const DEFINITION: ToolDefinition = {
   name: 'proposeEdit',
@@ -65,7 +85,7 @@ export class ProposeEditTool implements Tool {
   readonly definition = DEFINITION;
   readonly category = 'action' as const;
   readonly promptSummary = 'suggest a code edit shown as a diff for review';
-  private readonly _tempFiles: string[] = [];
+  private readonly _uris: string[] = [];
 
   constructor(
     private readonly _workspaceRoot: string,
@@ -108,32 +128,34 @@ export class ProposeEditTool implements Tool {
       return proposedContent.error;
     }
 
-    let tempFile: string;
+    let proposedUri: vscode.Uri;
     try {
-      tempFile = await writeTempFile(filePath, proposedContent);
-      this._tempFiles.push(tempFile);
+      ensureProvider();
+      proposedUri = createContentUri(filePath, proposedContent);
+      this._uris.push(proposedUri.toString());
 
-      const tempUri = vscode.Uri.file(tempFile);
       const diffTitle = `[PostHog Companion] ${path.basename(filePath)}`;
 
       if (isNewFile) {
-        // For new files, diff against an empty untitled document
-        const emptyFile = await writeTempFile(filePath + '.empty', '');
-        this._tempFiles.push(emptyFile);
+        const emptyUri = createContentUri(filePath + '.empty', '');
+        this._uris.push(emptyUri.toString());
         await vscode.commands.executeCommand(
           'vscode.diff',
-          vscode.Uri.file(emptyFile),
-          tempUri,
+          emptyUri,
+          proposedUri,
           diffTitle,
         );
       } else {
         await vscode.commands.executeCommand(
           'vscode.diff',
           vscode.Uri.file(resolved),
-          tempUri,
+          proposedUri,
           diffTitle,
         );
       }
+
+      // pin so opening another file doesn't replace the diff
+      await vscode.commands.executeCommand('workbench.action.pinEditor');
     } catch (err) {
       return `Error opening diff: ${err instanceof Error ? err.message : 'unknown error'}`;
     }
@@ -142,23 +164,22 @@ export class ProposeEditTool implements Tool {
       filePath,
       description,
       isNewFile,
-      tempFile,
     });
 
     if (result.action === 'reject') {
-      closeDiffTab(tempFile);
+      closeDiffTab(proposedUri);
       return `Edit rejected by user for ${filePath}.`;
     }
 
     if (result.action === 'modify') {
-      closeDiffTab(tempFile);
+      closeDiffTab(proposedUri);
       return `User requested changes to the proposed edit for ${filePath}: ${result.feedback}`;
     }
 
     try {
       await fs.mkdir(path.dirname(resolved), { recursive: true });
       await fs.writeFile(resolved, proposedContent, 'utf-8');
-      closeDiffTab(tempFile);
+      closeDiffTab(proposedUri);
 
       const diagnostics = await getDiagnosticsAfterWrite(resolved);
       if (diagnostics) {
@@ -171,14 +192,10 @@ export class ProposeEditTool implements Tool {
   }
 
   async dispose(): Promise<void> {
-    for (const tempFile of this._tempFiles) {
-      try {
-        await fs.unlink(tempFile);
-      } catch {
-        // Best-effort cleanup
-      }
+    for (const key of this._uris) {
+      _contentStore.delete(key);
     }
-    this._tempFiles.length = 0;
+    this._uris.length = 0;
   }
 }
 
@@ -234,19 +251,6 @@ async function buildProposedContent(
   );
 }
 
-async function writeTempFile(
-  originalPath: string,
-  content: string,
-): Promise<string> {
-  const ext = path.extname(originalPath);
-  const tempFile = path.join(
-    os.tmpdir(),
-    `posthog-edit-${crypto.randomUUID()}${ext}`,
-  );
-  await fs.writeFile(tempFile, content, 'utf-8');
-  return tempFile;
-}
-
 async function getDiagnosticsAfterWrite(
   filePath: string,
 ): Promise<string | undefined> {
@@ -292,8 +296,8 @@ async function getDiagnosticsAfterWrite(
   return `Diagnostics detected after writing the file:\n${lines.join('\n')}\n\nPlease review and fix these issues.`;
 }
 
-function closeDiffTab(tempFilePath: string): void {
-  const tempUri = vscode.Uri.file(tempFilePath);
+function closeDiffTab(proposedUri: vscode.Uri): void {
+  const target = proposedUri.toString();
   for (const group of vscode.window.tabGroups.all) {
     for (const tab of group.tabs) {
       const input = tab.input;
@@ -301,7 +305,7 @@ function closeDiffTab(tempFilePath: string): void {
         input &&
         typeof input === 'object' &&
         'modified' in input &&
-        (input as { modified: vscode.Uri }).modified.fsPath === tempUri.fsPath
+        (input as { modified: vscode.Uri }).modified.toString() === target
       ) {
         void vscode.window.tabGroups.close(tab);
         return;
