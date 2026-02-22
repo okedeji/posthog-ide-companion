@@ -5,7 +5,6 @@ export type SetupIssue = {
   title: string;
   description: string;
   evidence: string[];
-  remediation: string;
 };
 
 export type WorkspaceInfo = {

@@ -44,7 +44,6 @@ const SuggestionSchema = z.object({
   suggestion_type: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
-  recommended_actions: z.array(z.string()).optional(),
 });
 
 const IntegrationAnalysisSchema = z.object({
@@ -156,7 +155,9 @@ For each file, determine if PostHog integration would add value. Consider:
 - Could feature flags improve this code (gradual rollout, A/B testing)?
 - Does it handle errors that should be captured?
 
-Only suggest integration when it genuinely adds analytical value. Do NOT suggest PostHog for:
+Your job is detection only. Report which files need integration and why. Do not give advice on how to integrate.
+
+Only flag integration when it genuinely adds analytical value. Do NOT flag:
 - Utility functions, helpers, or pure logic with no user interaction
 - Internal configuration or setup files
 - Type definitions or constants
@@ -170,8 +171,7 @@ Respond with JSON only, no other text:
       "needs_integration": true,
       "suggestion_type": "event_capture",
       "title": "Track checkout events",
-      "description": "This checkout form handles purchases and should track conversion events.",
-      "recommended_actions": ["capture checkout_started on form render", "capture purchase_completed on success"]
+      "description": "This checkout form handles purchases and should track conversion events."
     },
     {
       "file": "src/utils/format.ts",
@@ -357,7 +357,6 @@ export function createFileAnalysisPoller(
               source: {
                 file: suggestion.file,
                 suggestionType: suggestion.suggestion_type ?? 'general',
-                recommendedActions: suggestion.recommended_actions ?? [],
               },
             });
           }

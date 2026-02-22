@@ -7,7 +7,6 @@ function makeIssue(overrides: Partial<SetupIssue> = {}): SetupIssue {
     title: 'PostHog not integrated',
     description: 'No PostHog SDK or HTTP integration found.',
     evidence: ['no posthog package in package.json'],
-    remediation: 'Install posthog-js and initialize it in your app.',
     ...overrides,
   };
 }
@@ -27,7 +26,6 @@ describe('workspaceInfoToSetupDiscoveries', () => {
       source: {
         checkId: 'posthog_not_integrated',
         evidence: ['no posthog package in package.json'],
-        remediation: 'Install posthog-js and initialize it in your app.',
       },
     });
   });

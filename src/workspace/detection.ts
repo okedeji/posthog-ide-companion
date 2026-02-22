@@ -22,7 +22,6 @@ const SetupIssueSchema = z.object({
   title: z.string(),
   description: z.string(),
   evidence: z.array(z.string()),
-  remediation: z.string(),
 }) satisfies z.ZodType<SetupIssue>;
 
 // z.coerce.string() on frameworkDetails because LLMs love returning booleans/numbers there
@@ -188,7 +187,7 @@ Only run if PostHog integration was found (Check 1 passed). This is an INFORMATI
 - **iOS/Android**: \`isFeatureEnabled(\`, \`getFeatureFlag(\`, \`getFeatureFlagResult(\`
 - **Flutter**: \`isFeatureEnabled(\`, \`getFeatureFlag(\`, \`getFeatureFlagResult(\`
 
-If NO feature flag usage is found, add this issue. Use a suggestive tone for the title (e.g. "Feature flags not used yet") and description — this is a recommendation, not a warning about something broken. The remediation should briefly explain how feature flags enable safe rollouts and A/B testing.
+If NO feature flag usage is found, add this issue. Use a suggestive tone for the title (e.g. "Feature flags not used yet") and description — this is a recommendation, not a warning about something broken.
 
 ### Output Schema
 
@@ -213,8 +212,7 @@ Return ONLY a JSON object matching this exact schema:
       "checkId": "source_maps_not_configured",
       "title": "Source maps not uploaded to PostHog",
       "description": "This Next.js project uses posthog-js but has no source map upload configured. Production error stack traces will show minified code.",
-      "evidence": ["posthog-js found in package.json", "next.config.ts uses webpack bundling", "no @posthog/cli or upload-source-maps action found"],
-      "remediation": "Install @posthog/cli and add a source map upload step to your build pipeline, or use @posthog/nextjs-config with withPostHogConfig() in next.config."
+      "evidence": ["posthog-js found in package.json", "next.config.ts uses webpack bundling", "no @posthog/cli or upload-source-maps action found"]
     }
   ]
 }
@@ -229,6 +227,7 @@ Return ONLY a JSON object matching this exact schema:
 - setupIssues must be an array. Only include issues you actually detected. Empty array if no issues found.
 - For setupIssues, always include specific evidence (file paths, package names) so the user understands why the issue was flagged.
 - For the \`no_custom_events\` and \`no_feature_flags\` checks, write the title and description in an informational/suggestive tone (e.g. "No custom events tracked", "Feature flags not used yet") rather than a warning tone. These will be shown as suggestions, not problems.
+- **Your job is detection only.** Report what is missing with clear evidence. Do not give opinions or advice on how to fix or integrate anything. A separate AI assistant handles that when the user asks.
 - Do NOT include commentary outside the JSON. Your final message must be ONLY the JSON object.`;
 
 function createDetectionRegistry(workspaceRoot: string) {

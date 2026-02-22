@@ -96,7 +96,6 @@ function makeSetupDiscovery(): Discovery {
     source: {
       checkId: 'source_maps_not_configured',
       evidence: ['posthog-js in package.json', 'no @posthog/cli found'],
-      remediation: 'Install @posthog/cli.',
     },
   };
 }

@@ -30,7 +30,6 @@ function makeSetupIssue(overrides: Partial<Discovery> = {}): Discovery {
     source: {
       checkId: 'posthog_not_integrated',
       evidence: [],
-      remediation: 'Install posthog-js',
     },
     ...overrides,
   };

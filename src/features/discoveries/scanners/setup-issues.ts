@@ -26,7 +26,6 @@ export function workspaceInfoToSetupDiscoveries(
     source: {
       checkId: issue.checkId,
       evidence: issue.evidence,
-      remediation: issue.remediation,
     },
   }));
 }

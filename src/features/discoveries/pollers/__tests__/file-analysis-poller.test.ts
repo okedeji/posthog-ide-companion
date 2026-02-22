@@ -34,7 +34,6 @@ function makeMockProvider(response?: {
               suggestion_type: 'event_capture',
               title: 'Track checkout events',
               description: 'Add event tracking for purchases.',
-              recommended_actions: ['capture purchase_completed'],
             },
           ],
         }),
@@ -145,7 +144,6 @@ describe('createFileAnalysisPoller', () => {
           title: 'PostHog not integrated',
           description: 'No SDK found',
           evidence: [],
-          remediation: 'Install posthog-js',
         },
       ],
     });

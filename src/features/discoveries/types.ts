@@ -32,7 +32,6 @@ export type ErrorDiscovery = Discovery<ErrorTrackingIssue>;
 export type SetupIssueSource = {
   checkId: string;
   evidence: string[];
-  remediation: string;
 };
 
 export type SetupIssueDiscovery = Discovery<SetupIssueSource>;
@@ -44,7 +43,6 @@ export type FlagDiscovery = Discovery<FeatureFlag>;
 export type IntegrationSuggestionSource = {
   file: string;
   suggestionType: string;
-  recommendedActions: string[];
 };
 
 export type IntegrationSuggestionDiscovery =
