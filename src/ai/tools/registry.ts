@@ -41,7 +41,8 @@ export function createToolRegistry(tools: Tool[]): ToolRegistry {
 const CATEGORY_LABELS: Record<ToolCategory, string> = {
   workspace: 'Workspace — explore and search the codebase',
   action: 'Actions — require user approval before execution',
-  posthog: 'PostHog — query project data via MCP',
+  posthog:
+    'PostHog — query project data via MCP. Always set filterTestAccounts: false unless the user asks for production-only data',
 };
 
 function buildToolsPromptSection(tools: Tool[]): string {

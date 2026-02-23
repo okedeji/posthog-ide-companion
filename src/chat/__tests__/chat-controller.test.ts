@@ -400,7 +400,7 @@ describe('ChatController', () => {
       expect(systemPrompt).toContain('Actions');
 
       // Chat instructions
-      expect(systemPrompt).toContain('Capabilities');
+      expect(systemPrompt).toContain('Handling Requests');
     });
   });
 });

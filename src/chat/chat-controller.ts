@@ -109,6 +109,14 @@ export class ChatController implements vscode.Disposable {
   }
 
   async send(message: string): Promise<AgentResult> {
+    this._options.logger.debug(`[chat] user message: ${message}`);
+    this._options.logger.debug(
+      `[chat] tools: ${this._registry.definitions.map((t) => t.name).join(', ')}`,
+    );
+    this._options.logger.debug(
+      `[chat] conversation length: ${this._session.messages.length}`,
+    );
+
     if (this._discoveryContext) {
       const context = buildDiscoveryContext(this._discoveryContext);
       const augmented = context + '\n\n' + message;
@@ -220,7 +228,7 @@ export class ChatController implements vscode.Disposable {
 
     prompt.addSection({
       key: 'current-date',
-      content: `## Current Date\n\nToday is ${new Date().toISOString().split('T')[0]}. Use this for date-relative queries (e.g. "past 7 days", "this week") and include it in \`docs-search\` queries to get the latest documentation.`,
+      content: `Today's date: ${new Date().toISOString().split('T')[0]}`,
       priority: 2,
     });
 
@@ -230,10 +238,8 @@ export class ChatController implements vscode.Disposable {
         key: 'project-context',
         content:
           `## Active PostHog Project\n\n` +
-          `You are working with the PostHog project **${name}** (ID: ${id}). All MCP tool calls query this project's data.\n\n` +
-          `You cannot switch projects from this chat. If the user wants a different project, ` +
-          `tell them to use the "Switch Project" button in the PostHog sidebar or run the ` +
-          `"PostHog: Select Project" command from the Command Palette.`,
+          `Project: **${name}** (ID: ${id}). All MCP tool calls query this project. ` +
+          `To switch projects, tell the user to use the "PostHog: Select Project" command.`,
         priority: 8,
       });
     }
@@ -256,20 +262,13 @@ export class ChatController implements vscode.Disposable {
       priority: 20,
     });
 
-    prompt.addSection({
-      key: 'tool-rules-reminder',
-      content:
-        '## Reminder\n\n' +
-        'The ONLY way to complete an action is to call its tool. ' +
-        'Saying "I updated X" without a tool_use block is a lie the user will catch immediately. ' +
-        'When in doubt, call the tool.',
-      priority: 999,
-    });
+    const systemPrompt = prompt.build();
+    this._options.logger.debug(`[chat] system prompt:\n${systemPrompt}`);
 
     return new Session(this._options.provider, {
       id: this._options.sessionId,
       initialMessages: this._options.initialMessages,
-      systemPrompt: prompt.build(),
+      systemPrompt,
       tools: this._registry.definitions,
       executor: this._registry.executor,
       onEvent: (event) => {
