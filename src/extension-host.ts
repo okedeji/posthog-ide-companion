@@ -296,6 +296,9 @@ export class ExtensionHost implements vscode.Disposable {
       await client.connect();
       this.mcpClient = client;
       this.logger.info(`MCP connected (${client.tools.length} tools)`);
+      // for (const t of client.tools) {
+      //   this.logger.info(`  [mcp] ${t.name}: ${t.description ?? '(no description)'}`);
+      // }
     } catch (err) {
       this.logger.error('MCP connection failed (non-fatal)', err);
       client.dispose();

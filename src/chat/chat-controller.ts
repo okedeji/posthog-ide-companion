@@ -42,6 +42,7 @@ import { GetAlertsTool } from '../ai/tools/get-alerts';
 import { UpdateAlertTool } from '../ai/tools/update-alert';
 import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
+import { ThinkTool } from '../ai/tools/think';
 import type { CodeSelection } from '../ui/chat/chat-provider';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { PostHogProject } from '../api/schemas';
@@ -170,6 +171,7 @@ export class ChatController implements vscode.Disposable {
     const { workspaceRoot, mcpClient, apiClient } = this._options;
 
     const tools: Tool[] = [
+      new ThinkTool(),
       new ReadFileTool(workspaceRoot),
       new ListDirectoryTool(workspaceRoot),
       new SearchCodeTool(workspaceRoot),
@@ -252,6 +254,16 @@ export class ChatController implements vscode.Disposable {
       key: 'chat-instructions',
       content: CHAT_INSTRUCTIONS,
       priority: 20,
+    });
+
+    prompt.addSection({
+      key: 'tool-rules-reminder',
+      content:
+        '## Reminder\n\n' +
+        'The ONLY way to complete an action is to call its tool. ' +
+        'Saying "I updated X" without a tool_use block is a lie the user will catch immediately. ' +
+        'When in doubt, call the tool.',
+      priority: 999,
     });
 
     return new Session(this._options.provider, {

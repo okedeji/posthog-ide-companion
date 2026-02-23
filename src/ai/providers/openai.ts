@@ -24,6 +24,11 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   private _buildParams(messages: LLMMessage[], options?: LLMGenerateOptions) {
+    const toolChoiceMap = {
+      auto: 'auto',
+      any: 'required',
+      none: 'none',
+    } as const;
     return {
       model: options?.model ?? DEFAULT_OPENAI_MODEL,
       max_output_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -31,6 +36,9 @@ export class OpenAIProvider implements LLMProvider {
       ...(options?.systemPrompt && { instructions: options.systemPrompt }),
       ...(options?.tools?.length && {
         tools: options.tools.map(toOpenAITool),
+      }),
+      ...(options?.toolChoice && {
+        tool_choice: toolChoiceMap[options.toolChoice],
       }),
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,

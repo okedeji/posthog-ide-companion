@@ -204,7 +204,7 @@ describe('ChatController', () => {
       const secondMessages = provider.calls[1]?.messages;
       const lastUserMsg = secondMessages?.[secondMessages.length - 1];
       const content = lastUserMsg?.content as string;
-      expect(content).toBe('Without context');
+      expect(content).toContain('Without context');
       expect(content).not.toContain('TypeError');
     });
 

@@ -44,9 +44,6 @@ const CATEGORY_LABELS: Record<ToolCategory, string> = {
   posthog: 'PostHog — query project data via MCP',
 };
 
-// Generates a prompt section listing all tools, grouped by category.
-// Workspace and action tools are listed individually with their summaries.
-// PostHog (MCP) tools get a count-based summary since there can be dozens.
 function buildToolsPromptSection(tools: Tool[]): string {
   const grouped = new Map<ToolCategory, Tool[]>();
   for (const tool of tools) {
@@ -57,33 +54,20 @@ function buildToolsPromptSection(tools: Tool[]): string {
 
   const lines: string[] = ['## Tools', ''];
 
-  const workspace = grouped.get('workspace') ?? [];
-  if (workspace.length > 0) {
-    lines.push(`**${CATEGORY_LABELS.workspace}:**`);
-    for (const t of workspace) {
-      lines.push(`- \`${t.definition.name}\` - ${t.promptSummary}`);
+  for (const category of ['workspace', 'action', 'posthog'] as ToolCategory[]) {
+    const group = grouped.get(category) ?? [];
+    if (group.length === 0) continue;
+    lines.push(`**${CATEGORY_LABELS[category]}:**`);
+    for (const t of group) {
+      lines.push(`- \`${t.definition.name}\` — ${t.promptSummary}`);
     }
     lines.push('');
   }
 
-  const actions = grouped.get('action') ?? [];
-  if (actions.length > 0) {
-    lines.push(`**${CATEGORY_LABELS.action}:**`);
-    for (const t of actions) {
-      lines.push(`- \`${t.definition.name}\` - ${t.promptSummary}`);
-    }
-    lines.push('');
-  }
-
-  const posthog = grouped.get('posthog') ?? [];
-  if (posthog.length > 0) {
-    lines.push(
-      `**${CATEGORY_LABELS.posthog}** (${posthog.length} tools) — ` +
-        'search docs, query analytics, manage feature flags/experiments, and more. ' +
-        'Always start with `docs-search` before answering PostHog questions.',
-    );
-    lines.push('');
-  }
+  lines.push(
+    'You MUST call the appropriate tool before answering. ' +
+      'Never describe what a tool would return — call it and report the actual result.',
+  );
 
   return lines.join('\n').trim();
 }

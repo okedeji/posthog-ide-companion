@@ -17,12 +17,15 @@ export type LLMMessage = {
   content: string | LLMContentBlock[];
 };
 
+export type ToolChoice = 'auto' | 'any' | 'none';
+
 export type LLMGenerateOptions = {
   model?: string;
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
   tools?: ToolDefinition[];
+  toolChoice?: ToolChoice;
 };
 
 export type TokenUsage = {
@@ -114,6 +117,7 @@ export type AgentLoopOptions = {
   temperature?: number;
   systemPrompt?: string;
   enableStreaming?: boolean;
+  toolChoice?: ToolChoice;
   onEvent?: AgentEventCallback;
   // if not provided, consent-requiring tools are auto-rejected
   onConsent?: ConsentCallback;

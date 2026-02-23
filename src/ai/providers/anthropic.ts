@@ -32,6 +32,9 @@ export class AnthropicProvider implements LLMProvider {
       ...(options?.tools?.length && {
         tools: options.tools.map(toAnthropicTool),
       }),
+      ...(options?.toolChoice && {
+        tool_choice: { type: options.toolChoice } as Anthropic.ToolChoice,
+      }),
       ...(options?.temperature !== undefined && {
         temperature: options.temperature,
       }),

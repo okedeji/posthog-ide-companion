@@ -43,6 +43,10 @@ export async function runAgentLoop(
       temperature: options?.temperature,
       systemPrompt: options?.systemPrompt,
       tools,
+      toolChoice:
+        options?.toolChoice && iterations === 1
+          ? options.toolChoice
+          : undefined,
     };
 
     let response: LLMResponse;

@@ -19,8 +19,13 @@ import type {
   MessageBlock,
 } from './types';
 
-const LLM_SUFFIX =
-  '\n\nDo not hallucinate. YOU MUST CALL THE TOOL BEFORE YOU GIVE ANSWERS. You have no excuse';
+const LLM_SUFFIX = `
+
+Before answering, check:
+1. Does this need live data or a PostHog action? Call the tool first.
+2. Does this involve a PostHog concept? Call docs-search first.
+3. An action is NOT done until its tool_use block appears above. Never claim otherwise.
+4. Unsure about a fact? Say so. Do not guess.`;
 
 // Multi-turn conversation. Keeps two histories: _messages for the UI (with
 // timestamps + tool activity) and _llmMessages for the API (with content blocks).
@@ -112,6 +117,7 @@ export class Session {
         this._executor,
         {
           ...this._agentOptions,
+          toolChoice: this._tools.length > 0 ? 'any' : undefined,
           systemPrompt: this._systemPrompt,
           signal: this._abortController.signal,
           onEvent: (event: AgentEvent) => {
