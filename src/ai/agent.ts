@@ -162,7 +162,17 @@ export async function runAgentLoop(
       }),
     );
 
-    conversation.push({ role: 'user', content: results });
+    const maxLen = options?.maxToolResultLength;
+    const trimmed = maxLen
+      ? results.map((r) => ({
+          ...r,
+          content:
+            r.content.length > maxLen
+              ? r.content.slice(0, maxLen) + '\n...(truncated)'
+              : r.content,
+        }))
+      : results;
+    conversation.push({ role: 'user', content: trimmed });
   }
 
   if (signal?.aborted) {

@@ -192,6 +192,7 @@ export async function detectWorkspace(
       maxIterations,
       temperature: 0,
       maxTokens: 4096,
+      maxToolResultLength: 8_000,
       onEvent: options?.onEvent,
     },
   );

@@ -122,6 +122,7 @@ export type AgentLoopOptions = {
   // if not provided, consent-requiring tools are auto-rejected
   onConsent?: ConsentCallback;
   signal?: AbortSignal;
+  maxToolResultLength?: number;
 };
 
 export type AgentResult = {
