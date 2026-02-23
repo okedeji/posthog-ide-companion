@@ -38,6 +38,7 @@ import type {
 import type { PostHogMcpClient } from '../mcp/client';
 import type { PostHogApiClient } from '../api/client';
 import { CreateAlertTool } from '../ai/tools/create-alert';
+import { GetAlertsTool } from '../ai/tools/get-alerts';
 import { UpdateAlertTool } from '../ai/tools/update-alert';
 import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
@@ -72,6 +73,8 @@ export type ChatControllerOptions = {
   onEvent: AgentEventCallback;
   onConsentRequest: (request: ConsentRequest) => void;
   onDiscoveryResolved?: (discoveryId: string) => void;
+  sessionId?: string;
+  initialMessages?: SessionMessage[];
 };
 
 export class ChatController implements vscode.Disposable {
@@ -182,11 +185,19 @@ export class ChatController implements vscode.Disposable {
       const hooks = this._options.onDiscoveryResolved
         ? buildMcpToolHooks(this._options.onDiscoveryResolved)
         : undefined;
-      tools.push(...createMcpTools(mcpClient, hooks));
+      // Exclude MCP tools that have better local implementations with
+      // validation, parameter transformation, and consent gates.
+      const excludeMcp = new Set([
+        'create-alert',
+        'update-alert',
+        'delete-alert',
+      ]);
+      tools.push(...createMcpTools(mcpClient, hooks, excludeMcp));
     }
 
     if (apiClient) {
       tools.push(
+        new GetAlertsTool(apiClient),
         new CreateAlertTool(apiClient),
         new UpdateAlertTool(apiClient, (alertId, enabled) => {
           if (!enabled) {
@@ -244,6 +255,8 @@ export class ChatController implements vscode.Disposable {
     });
 
     return new Session(this._options.provider, {
+      id: this._options.sessionId,
+      initialMessages: this._options.initialMessages,
       systemPrompt: prompt.build(),
       tools: this._registry.definitions,
       executor: this._registry.executor,

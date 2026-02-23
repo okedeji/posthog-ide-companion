@@ -209,9 +209,9 @@ export type SurveyQuestion = z.infer<typeof SurveyQuestionSchema>;
 // Alerts — GET /api/projects/{id}/alerts/
 
 export const AlertSchema = z.object({
-  id: z.number(),
+  id: z.union([z.number(), z.string()]),
   name: z.string(),
-  state: z.enum(['firing', 'not_firing', 'snoozed']).optional(),
+  state: z.string().optional(),
   enabled: z.boolean(),
   condition: z
     .object({

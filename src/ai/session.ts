@@ -51,6 +51,14 @@ export class Session {
     this._tokenCounter = createTokenCounter();
     this._createdAt = Date.now();
     this._lastActiveAt = this._createdAt;
+
+    if (options?.initialMessages?.length) {
+      this._messages = [...options.initialMessages];
+      this._llmMessages = options.initialMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+    }
   }
 
   get messages(): readonly SessionMessage[] {

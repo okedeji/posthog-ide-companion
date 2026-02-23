@@ -68,7 +68,7 @@ export function createAlertPoller(
       }
 
       const firing = result.data.results.filter(
-        (a) => a.state === 'firing' && a.enabled,
+        (a) => a.state?.toLowerCase() === 'firing' && a.enabled,
       );
       const discoveries = firing.map(alertToDiscovery);
       const knownIds = new Set(

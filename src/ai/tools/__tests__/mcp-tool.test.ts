@@ -97,6 +97,16 @@ describe('createMcpTools', () => {
     expect(tools[1]?.definition.name).toBe('tool-b');
   });
 
+  it('excludes tools by name', () => {
+    const defs = [makeDef('keep'), makeDef('drop'), makeDef('also-keep')];
+    const client = makeMockClient(undefined, defs);
+
+    const tools = createMcpTools(client, undefined, new Set(['drop']));
+
+    expect(tools).toHaveLength(2);
+    expect(tools.map((t) => t.definition.name)).toEqual(['keep', 'also-keep']);
+  });
+
   it('attaches hooks to matching tools', () => {
     const defs = [makeDef('hooked'), makeDef('plain')];
     const client = makeMockClient(undefined, defs);

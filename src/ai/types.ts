@@ -149,6 +149,7 @@ export type SessionOptions = {
   onEvent?: AgentEventCallback;
   // Pass {} for defaults or provide overrides. Omit to disable.
   compaction?: CompactionOptions;
+  initialMessages?: SessionMessage[];
 };
 
 export type ToolActivity = {

@@ -83,6 +83,7 @@ export class ChatViewProvider implements vscode.Disposable {
   private _panel: vscode.WebviewPanel | undefined;
   private _controller: ChatController | undefined;
   private _sessionId: string | undefined;
+  private _restoredMessages: SessionMessage[] | undefined;
   private _disposables: vscode.Disposable[] = [];
 
   constructor(private readonly _deps: ChatProviderDeps) {}
@@ -243,6 +244,7 @@ export class ChatViewProvider implements vscode.Disposable {
     this._controller?.dispose();
     this._controller = undefined;
     this._sessionId = undefined;
+    this._restoredMessages = undefined;
     this._postHistory();
     this._postState();
   }
@@ -301,6 +303,7 @@ export class ChatViewProvider implements vscode.Disposable {
     this._controller = undefined;
 
     this._sessionId = session.id;
+    this._restoredMessages = [...session.messages];
 
     this._postMessage({ type: 'history', messages: session.messages });
     this._postState();
@@ -374,7 +377,12 @@ export class ChatViewProvider implements vscode.Disposable {
       return undefined;
     }
 
-    this._sessionId = crypto.randomUUID();
+    const restoredMessages = this._restoredMessages;
+    this._restoredMessages = undefined;
+
+    if (!this._sessionId) {
+      this._sessionId = crypto.randomUUID();
+    }
 
     this._controller = new ChatController({
       provider,
@@ -384,6 +392,8 @@ export class ChatViewProvider implements vscode.Disposable {
       apiClient: this._deps.getApiClient(),
       workspaceInfo: this._deps.getWorkspaceInfo(),
       project: this._deps.getProject(),
+      sessionId: this._sessionId,
+      initialMessages: restoredMessages,
       onEvent: (event: AgentEvent) => {
         this._postMessage({ type: 'agent_event', event });
       },

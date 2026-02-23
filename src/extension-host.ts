@@ -108,7 +108,7 @@ export class ExtensionHost implements vscode.Disposable {
       getWorkspaceInfo: () => getStoredWorkspaceInfo(context),
       getProject: () => getActiveProject(context),
       chatHistory: new ChatHistory(context.workspaceState),
-      onDiscoveryResolved: (id) => this.discoveryStore.remove(id),
+      onDiscoveryResolved: (id) => this.dismissDiscovery(id),
     });
     context.subscriptions.push(this.chatProvider);
 
@@ -173,7 +173,7 @@ export class ExtensionHost implements vscode.Disposable {
       vscode.commands.registerCommand(
         'posthog.dismissDiscovery',
         (discovery: Discovery) => {
-          this.discoveryStore.remove(discovery.id);
+          this.dismissDiscovery(discovery.id);
         },
       ),
       vscode.commands.registerCommand('posthog.sendToChat', () => {
@@ -655,6 +655,25 @@ export class ExtensionHost implements vscode.Disposable {
     this.mergeSetupIssues(workspaceInfo.setupIssues);
     if (isWorkspaceInfoStale(workspaceInfo)) {
       void this.promptStaleWorkspaceRedetection();
+    }
+  }
+
+  private dismissDiscovery(id: string): void {
+    this.discoveryStore.remove(id);
+
+    // Persist setup issue dismissals so they survive reload.
+    if (id.startsWith('setup_issue:')) {
+      const checkId = id.slice('setup_issue:'.length);
+      const info = getStoredWorkspaceInfo(this.context);
+      if (info?.setupIssues?.length) {
+        const filtered = info.setupIssues.filter((i) => i.checkId !== checkId);
+        if (filtered.length !== info.setupIssues.length) {
+          void setStoredWorkspaceInfo(this.context, {
+            ...info,
+            setupIssues: filtered,
+          });
+        }
+      }
     }
   }
 

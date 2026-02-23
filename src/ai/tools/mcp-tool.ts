@@ -36,8 +36,9 @@ export class McpTool implements Tool {
 export function createMcpTools(
   client: PostHogMcpClient,
   hooks?: McpToolHooks,
+  exclude?: Set<string>,
 ): Tool[] {
-  return client.tools.map(
-    (def) => new McpTool(client, def, hooks?.get(def.name)),
-  );
+  return client.tools
+    .filter((def) => !exclude || !exclude.has(def.name))
+    .map((def) => new McpTool(client, def, hooks?.get(def.name)));
 }

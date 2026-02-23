@@ -390,7 +390,7 @@ describe('ChatController', () => {
       expect(systemPrompt).toBeDefined();
 
       // Foundation
-      expect(systemPrompt).toContain('Core Behavior');
+      expect(systemPrompt).toContain('Hard Rules');
 
       // Auto-generated tools section
       expect(systemPrompt).toContain('readFile');

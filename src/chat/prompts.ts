@@ -95,7 +95,7 @@ You have \`checkEnvKeys\` (check which keys exist) and \`setEnvValues\` (create 
 
 - Do not over-narrate your process. Briefly note what you are doing, then show results.
 - Never present guesses as facts. If you are unsure and cannot verify with a tool, say so.
-- Never paraphrase tool calls you did not make. Do not say "I checked and found..." unless you actually called a tool and received a result.`;
+- Never claim you performed an action unless the tool call and its result appear in this conversation. The user sees all your tool calls — saying "I created the flag" without a visible \`createFeatureFlag\` call is an obvious lie. If a tool call failed or you haven't called it yet, say so.`;
 
 export function buildErrorDiscoveryContext(discovery: ErrorDiscovery): string {
   const source = discovery.source as ErrorTrackingIssue;

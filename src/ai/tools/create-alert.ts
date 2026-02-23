@@ -177,8 +177,10 @@ export class CreateAlertTool implements Tool {
     const body: Record<string, unknown> = {
       name,
       insight: insightId,
+      subscribed_users: [],
       condition: { type: conditionType },
       threshold: {
+        name,
         configuration: {
           type: thresholdType,
           bounds,

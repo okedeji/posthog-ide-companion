@@ -150,10 +150,10 @@ describe('UpdateAlertTool', () => {
     );
   });
 
-  it('returns error for invalid id', async () => {
+  it('returns error for missing id', async () => {
     const tool = new UpdateAlertTool(makeClient());
-    const result = await tool.execute(makeCall({ id: -1 }));
-    expect(result).toMatch(/id must be a positive integer/i);
+    const result = await tool.execute(makeCall({ enabled: true }));
+    expect(result).toMatch(/id is required/i);
   });
 
   it('returns error when no update fields provided', async () => {

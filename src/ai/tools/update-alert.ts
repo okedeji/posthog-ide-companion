@@ -23,8 +23,8 @@ const DEFINITION: ToolDefinition = {
     type: 'object',
     properties: {
       id: {
-        type: 'number',
-        description: 'The numeric ID of the alert to update.',
+        type: 'string',
+        description: 'The ID of the alert to update.',
       },
       name: {
         type: 'string',
@@ -70,7 +70,10 @@ const DEFINITION: ToolDefinition = {
   requiresConsent: true,
 };
 
-export type AlertUpdatedCallback = (alertId: number, enabled: boolean) => void;
+export type AlertUpdatedCallback = (
+  alertId: number | string,
+  enabled: boolean,
+) => void;
 
 export class UpdateAlertTool implements Tool {
   readonly definition = DEFINITION;
@@ -84,9 +87,9 @@ export class UpdateAlertTool implements Tool {
   ) {}
 
   async execute(call: ToolCall): Promise<string> {
-    const id = Number(call.arguments['id']);
-    if (!Number.isInteger(id) || id <= 0) {
-      return 'Error: id must be a positive integer';
+    const id = call.arguments['id'];
+    if (id == null || String(id).trim() === '') {
+      return 'Error: id is required';
     }
 
     const hasName = 'name' in call.arguments;

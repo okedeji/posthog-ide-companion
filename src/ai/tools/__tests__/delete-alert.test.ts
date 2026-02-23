@@ -42,16 +42,10 @@ describe('DeleteAlertTool', () => {
     expect(client.delete).toHaveBeenCalledWith('/alerts/1/');
   });
 
-  it('returns error for invalid id', async () => {
+  it('returns error for missing id', async () => {
     const tool = new DeleteAlertTool(makeClient());
-    const result = await tool.execute(makeCall({ id: 0 }));
-    expect(result).toMatch(/id must be a positive integer/i);
-  });
-
-  it('returns error for non-integer id', async () => {
-    const tool = new DeleteAlertTool(makeClient());
-    const result = await tool.execute(makeCall({ id: 1.5 }));
-    expect(result).toMatch(/id must be a positive integer/i);
+    const result = await tool.execute(makeCall({}));
+    expect(result).toMatch(/id is required/i);
   });
 
   it('returns error when fetch fails', async () => {
