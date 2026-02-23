@@ -6,7 +6,7 @@ import type { ToolDefinition, ToolCall } from '../types';
 const DEFINITION: ToolDefinition = {
   name: 'deleteAlert',
   description:
-    'Delete a PostHog alert permanently. Use the alert ID (from createAlert or entity-search). ' +
+    'Delete a PostHog alert permanently. Use the alert ID (from createAlert or getAlerts). ' +
     'This removes the alert and stops all future checks and notifications. ' +
     'The user will be asked to confirm before deleting.',
   parameters: {

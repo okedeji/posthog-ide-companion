@@ -16,7 +16,7 @@ const DEFINITION: ToolDefinition = {
   description:
     'Create a PostHog alert that monitors a Trends insight and fires when a threshold is crossed. ' +
     'You can provide an existing insight_id, or provide an event_name to auto-create a simple Trends insight. ' +
-    'If the user mentions a specific chart or insight, search for it first (via entity-search) and use its ID. ' +
+    'If the user mentions a specific chart or insight, search for it first (via insights-get-all) and use its ID. ' +
     'If no matching insight exists, provide event_name to create one automatically. ' +
     'Supports three condition types: absolute_value (raw metric crosses threshold), ' +
     'relative_increase (metric increases by more than threshold), relative_decrease (metric decreases by more than threshold). ' +

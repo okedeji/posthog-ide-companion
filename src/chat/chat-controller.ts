@@ -92,7 +92,6 @@ const CORE_TOOLS = new Set([
   'bash',
   'proposeEdit',
   'docs-search',
-  'entity-search',
   'query-run',
 ]);
 
@@ -211,11 +210,7 @@ export class ChatController implements vscode.Disposable {
         : undefined;
       // Exclude MCP tools that have better local implementations with
       // validation, parameter transformation, and consent gates.
-      const excludeMcp = new Set([
-        'create-alert',
-        'update-alert',
-        'delete-alert',
-      ]);
+      const excludeMcp = new Set(['entity-search']);
       tools.push(...createMcpTools(mcpClient, hooks, excludeMcp));
     }
 

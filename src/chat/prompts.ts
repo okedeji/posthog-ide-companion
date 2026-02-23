@@ -39,7 +39,7 @@ Write requests change PostHog state and/or the codebase. Treat them as end-to-en
 
 **1. Research** — before planning:
 - Search docs (\`docs-search\`) for the latest recommended approach. Include the current date.
-- Check PostHog (\`entity-search\`, MCP tools) for existing flags, experiments, events, dashboards.
+- Check PostHog (MCP tools) for existing flags, experiments, events, dashboards.
 - Read the codebase for where the feature lives, what patterns and naming conventions exist.
 
 **2. Plan** — before executing:

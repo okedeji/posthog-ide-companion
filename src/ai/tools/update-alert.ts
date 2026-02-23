@@ -14,7 +14,7 @@ const VALID_INTERVALS = ['hourly', 'daily', 'weekly', 'monthly'];
 const DEFINITION: ToolDefinition = {
   name: 'updateAlert',
   description:
-    'Update an existing PostHog alert. Use the alert ID (from createAlert or entity-search). ' +
+    'Update an existing PostHog alert. Use the alert ID (from createAlert or getAlerts). ' +
     'You can enable/disable it, change the threshold, update the condition type, adjust the check interval, or snooze it. ' +
     'When changing threshold bounds, the current alert config is fetched first to preserve other settings. ' +
     'To snooze, set snoozed_until to a duration like "2h" or "1d". To unsnooze, set it to "null". ' +
