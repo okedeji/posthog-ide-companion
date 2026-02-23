@@ -65,7 +65,8 @@ body {
 }
 
 .session-item {
-  padding: 8px 10px;
+  position: relative;
+  padding: 8px 28px 8px 10px;
   border-radius: 4px;
   cursor: pointer;
   margin-bottom: 2px;
@@ -81,6 +82,31 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.session-delete {
+  display: none;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.session-delete:hover {
+  color: var(--vscode-errorForeground, #f44);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.session-item:hover .session-delete {
+  display: block;
 }
 
 .session-item .session-meta {

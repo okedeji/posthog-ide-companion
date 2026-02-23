@@ -172,11 +172,6 @@
           "command": "posthog.refreshDiscoveries",
           "when": "view == posthog.discoveries",
           "group": "navigation@1"
-        },
-        {
-          "command": "posthog.openChat",
-          "when": "view == posthog.discoveries",
-          "group": "navigation@2"
         }
       ],
       "view/item/context": [

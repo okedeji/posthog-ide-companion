@@ -19,6 +19,9 @@ import type {
   MessageBlock,
 } from './types';
 
+const LLM_SUFFIX =
+  '\n\nDo not hallucinate. YOU MUST CALL THE TOOL BEFORE YOU GIVE ANSWERS. You have no excuse';
+
 // Multi-turn conversation. Keeps two histories: _messages for the UI (with
 // timestamps + tool activity) and _llmMessages for the API (with content blocks).
 export class Session {
@@ -91,7 +94,7 @@ export class Session {
         content: displayContent ?? message,
         timestamp: Date.now(),
       });
-      this._llmMessages.push({ role: 'user', content: message });
+      this._llmMessages.push({ role: 'user', content: message + LLM_SUFFIX });
 
       if (this._compaction) {
         this._llmMessages = await compactIfNeeded(

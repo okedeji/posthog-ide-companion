@@ -59,6 +59,7 @@ type IncomingMessage =
   | { type: 'new_chat' }
   | { type: 'show_history' }
   | { type: 'load_session'; id: string }
+  | { type: 'delete_session'; id: string }
   | { type: 'cancel' }
   | { type: 'open_link'; url: string }
   | { type: 'ready' };
@@ -278,6 +279,10 @@ export class ChatViewProvider implements vscode.Disposable {
 
       case 'load_session':
         this._loadSession(msg.id);
+        break;
+
+      case 'delete_session':
+        this._deps.chatHistory.delete(msg.id);
         break;
 
       case 'cancel':

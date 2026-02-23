@@ -526,16 +526,32 @@
         html += '<div class="session-item" data-id="' + escapeHtml(s.id) + '">'
           + '<div class="session-title">' + escapeHtml(s.title) + '</div>'
           + '<div class="session-meta">' + s.messageCount + ' messages · ' + date + '</div>'
+          + '<button class="session-delete" title="Delete conversation">✕</button>'
           + '</div>';
       }
       sessionListEl.innerHTML = html;
 
       var items = sessionListEl.querySelectorAll('.session-item');
       for (var j = 0; j < items.length; j++) {
-        items[j].addEventListener('click', function() {
+        items[j].addEventListener('click', function(e) {
+          if (e.target.classList.contains('session-delete')) return;
           var id = this.getAttribute('data-id');
           vscode.postMessage({ type: 'load_session', id: id });
           hideSessionList();
+        });
+      }
+
+      var deleteBtns = sessionListEl.querySelectorAll('.session-delete');
+      for (var k = 0; k < deleteBtns.length; k++) {
+        deleteBtns[k].addEventListener('click', function(e) {
+          e.stopPropagation();
+          var item = this.closest('.session-item');
+          var id = item.getAttribute('data-id');
+          item.remove();
+          vscode.postMessage({ type: 'delete_session', id: id });
+          if (!sessionListEl.querySelector('.session-item')) {
+            sessionListEl.innerHTML = '<div class="session-list-empty">No previous chats</div>';
+          }
         });
       }
     }
