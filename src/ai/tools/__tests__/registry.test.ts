@@ -36,7 +36,7 @@ describe('createToolRegistry', () => {
       stubTool('beta', ''),
     ]);
 
-    const names = registry.definitions.map((d) => d.name);
+    const names = registry.coreDefinitions.map((d) => d.name);
     expect(names).toEqual(['alpha', 'beta']);
   });
 

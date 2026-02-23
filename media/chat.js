@@ -190,17 +190,22 @@
         if (block.type === 'text') {
           html += '<div class="content">' + renderMarkdown(block.content) + '</div>';
         } else if (block.type === 'tool') {
-          var duration = block.durationMs
-            ? ' (' + (block.durationMs / 1000).toFixed(1) + 's)'
-            : '';
-          var truncated = truncateResult(block.result);
-          html += '<div class="tool-activity"><details>'
-            + '<summary>' + escapeHtml(humanizeToolName(block.name)) + duration + '</summary>'
-            + formatArgs(block.arguments)
-            + '<div class="tool-result">' + escapeHtml(truncated) + '</div>'
-            + '</details></div>';
-          if (block.feedback) {
-            html += '<div class="tool-feedback">' + escapeHtml(block.feedback) + '</div>';
+          var special = renderSpecialTool(block.name, block.arguments, false, block.result, block.durationMs);
+          if (special) {
+            html += special;
+          } else {
+            var duration = block.durationMs
+              ? ' (' + (block.durationMs / 1000).toFixed(1) + 's)'
+              : '';
+            var truncated = truncateResult(block.result);
+            html += '<div class="tool-activity"><details>'
+              + '<summary>' + escapeHtml(humanizeToolName(block.name)) + duration + '</summary>'
+              + formatArgs(block.arguments)
+              + '<div class="tool-result">' + escapeHtml(truncated) + '</div>'
+              + '</details></div>';
+            if (block.feedback) {
+              html += '<div class="tool-feedback">' + escapeHtml(block.feedback) + '</div>';
+            }
           }
         }
       }
@@ -264,7 +269,10 @@
           + renderMarkdown(closeOpenCodeBlock(block.content))
           + '</div>';
       } else if (block.type === 'tool') {
-        if (block.pending) {
+        var special = renderSpecialTool(block.name, block.args, block.pending, block.result, block.durationMs);
+        if (special) {
+          html += special;
+        } else if (block.pending) {
           html += '<div class="working-indicator">'
             + pulseDots
             + '<span>Using ' + escapeHtml(humanizeToolName(block.name)) + '...</span>'
@@ -702,6 +710,7 @@
 
   var toolDisplayNames = {
     // Custom tools
+    think: 'Reasoning',
     proposeEdit: 'Edit File',
     bash: 'Run Command',
     readFile: 'Read File',
@@ -710,6 +719,7 @@
     checkEnvKeys: 'Check Env Keys',
     dismissDiscovery: 'Dismiss Discovery',
     updateErrorStatus: 'Update Error Status',
+    getAlerts: "Get Alerts",
     createAlert: 'Create Alert',
     updateAlert: 'Update Alert',
     deleteAlert: 'Delete Alert',
@@ -758,6 +768,32 @@
 
   function humanizeToolName(name) {
     return toolDisplayNames[name] || name;
+  }
+
+  // Renders think differently, hides findTools entirely.
+  // Returns HTML string, or empty string if not a special tool.
+  function renderSpecialTool(name, args, pending, result, durationMs) {
+    if (name === 'think') {
+      if (pending) {
+        return '<div class="think-block pending">'
+          + pulseDots
+          + '<span>Reasoning...</span>'
+          + '</div>';
+      }
+      var thought = (args && args.thought) || result || '';
+      var dur = durationMs ? ' (' + (durationMs / 1000).toFixed(1) + 's)' : '';
+      return '<div class="think-block"><details>'
+        + '<summary>Reasoned' + dur + '</summary>'
+        + '<div class="think-content">' + escapeHtml(thought) + '</div>'
+        + '</details></div>';
+    }
+
+    // findTools is internal plumbing — don't show anything
+    if (name === 'findTools') {
+      return ' ';
+    }
+
+    return '';
   }
 
   function formatArgs(args) {

@@ -1,20 +1,38 @@
-import type { Tool, ToolCategory } from './tool';
+import type { Tool } from './tool';
 import type { ToolDefinition, ToolCall, ToolExecutor } from '../types';
 
 export type ToolRegistry = {
-  definitions: ToolDefinition[];
+  coreDefinitions: ToolDefinition[];
+  onDemandDefinitions: Map<string, ToolDefinition>;
   executor: ToolExecutor;
   toolsPromptSection: string;
   dispose: () => Promise<void>;
 };
 
-export function createToolRegistry(tools: Tool[]): ToolRegistry {
+// When coreNames is provided, only those tools get full schemas sent to the API.
+// Everything else is on-demand (listed in prompt, loaded via findTools).
+// Executor handles all tools regardless of tier.
+export function createToolRegistry(
+  tools: Tool[],
+  coreNames?: Set<string>,
+): ToolRegistry {
   const toolMap = new Map<string, Tool>();
   for (const tool of tools) {
     toolMap.set(tool.definition.name, tool);
   }
 
-  const definitions = tools.map((t) => t.definition);
+  const isCore = coreNames ? (name: string) => coreNames.has(name) : () => true;
+
+  const coreDefinitions: ToolDefinition[] = [];
+  const onDemandDefinitions = new Map<string, ToolDefinition>();
+
+  for (const tool of tools) {
+    if (isCore(tool.definition.name)) {
+      coreDefinitions.push(tool.definition);
+    } else {
+      onDemandDefinitions.set(tool.definition.name, tool.definition);
+    }
+  }
 
   const executor: ToolExecutor = async (call: ToolCall): Promise<string> => {
     const tool = toolMap.get(call.name);
@@ -31,35 +49,45 @@ export function createToolRegistry(tools: Tool[]): ToolRegistry {
   };
 
   return {
-    definitions,
+    coreDefinitions,
+    onDemandDefinitions,
     executor,
-    toolsPromptSection: buildToolsPromptSection(tools),
+    toolsPromptSection: buildToolsPromptSection(tools, isCore),
     dispose,
   };
 }
 
-const CATEGORY_LABELS: Record<ToolCategory, string> = {
-  workspace: 'Workspace — explore and search the codebase',
-  action: 'Actions — require user approval before execution',
-  posthog:
-    'PostHog — query project data via MCP. Always set filterTestAccounts: false unless the user asks for production-only data',
-};
+function buildToolsPromptSection(
+  tools: Tool[],
+  isCore: (name: string) => boolean,
+): string {
+  const core: Tool[] = [];
+  const onDemand: Tool[] = [];
 
-function buildToolsPromptSection(tools: Tool[]): string {
-  const grouped = new Map<ToolCategory, Tool[]>();
   for (const tool of tools) {
-    const group = grouped.get(tool.category) ?? [];
-    group.push(tool);
-    grouped.set(tool.category, group);
+    if (isCore(tool.definition.name)) {
+      core.push(tool);
+    } else {
+      onDemand.push(tool);
+    }
   }
 
   const lines: string[] = ['## Tools', ''];
 
-  for (const category of ['workspace', 'action', 'posthog'] as ToolCategory[]) {
-    const group = grouped.get(category) ?? [];
-    if (group.length === 0) continue;
-    lines.push(`**${CATEGORY_LABELS[category]}:**`);
-    for (const t of group) {
+  lines.push('**Core tools (always available):**');
+  for (const t of core) {
+    lines.push(`- \`${t.definition.name}\` — ${t.promptSummary}`);
+  }
+  lines.push('');
+
+  if (onDemand.length > 0) {
+    lines.push(
+      '**On-demand tools (call `findTools` with exact names to load):**',
+    );
+    lines.push(
+      'Always set filterTestAccounts: false unless the user asks for production-only data.',
+    );
+    for (const t of onDemand) {
       lines.push(`- \`${t.definition.name}\` — ${t.promptSummary}`);
     }
     lines.push('');

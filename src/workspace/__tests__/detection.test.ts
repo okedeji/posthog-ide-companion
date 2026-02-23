@@ -408,7 +408,7 @@ describe('detection registry', () => {
       new SearchCodeTool('/tmp'),
       new CheckEnvKeysTool('/tmp'),
     ]);
-    const names = registry.definitions.map((t) => t.name);
+    const names = registry.coreDefinitions.map((t) => t.name);
     expect(names).toContain('readFile');
     expect(names).toContain('listDirectory');
     expect(names).toContain('searchCode');
@@ -422,7 +422,7 @@ describe('detection registry', () => {
       new SearchCodeTool('/tmp'),
       new CheckEnvKeysTool('/tmp'),
     ]);
-    const names = registry.definitions.map((t) => t.name);
+    const names = registry.coreDefinitions.map((t) => t.name);
     expect(names).not.toContain('setEnvValues');
   });
 });

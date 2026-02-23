@@ -407,6 +407,54 @@ body {
   color: var(--vscode-descriptionForeground);
 }
 
+/* --- Think block (reasoning tool) --- */
+.think-block {
+  margin: 4px 0;
+}
+
+.think-block.pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  padding: 4px 0;
+}
+
+.think-block details {
+  border-left: 2px solid var(--vscode-widget-border, rgba(128,128,128,0.25));
+  border-radius: 0;
+  margin: 2px 0;
+}
+
+.think-block summary {
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  user-select: none;
+  list-style: none;
+}
+
+.think-block summary:hover {
+  opacity: 1;
+}
+
+.think-content {
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
 /* --- Streaming / working indicator --- */
 #streaming {
   padding: 0;

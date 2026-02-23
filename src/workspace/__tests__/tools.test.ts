@@ -50,14 +50,14 @@ afterAll(async () => {
 
 describe('tool definitions', () => {
   it('should include readFile, listDirectory, and searchCode', () => {
-    const names = registry.definitions.map((t) => t.name);
+    const names = registry.coreDefinitions.map((t) => t.name);
     expect(names).toContain('readFile');
     expect(names).toContain('listDirectory');
     expect(names).toContain('searchCode');
   });
 
   it('has descriptions and parameters for all tools', () => {
-    for (const tool of registry.definitions) {
+    for (const tool of registry.coreDefinitions) {
       expect(tool.description).toBeTruthy();
       expect(tool.parameters).toBeDefined();
       expect(tool.parameters['type']).toBe('object');

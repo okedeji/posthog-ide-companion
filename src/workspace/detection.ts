@@ -162,7 +162,7 @@ export async function detectWorkspace(
   const registry = createDetectionRegistry(workspaceRoot, options?.mcpClient);
   const maxIterations = options?.maxIterations ?? 16;
 
-  const hasDocsSearch = registry.definitions.some(
+  const hasDocsSearch = registry.coreDefinitions.some(
     (d) => d.name === 'docs-search',
   );
   log(
@@ -185,7 +185,7 @@ export async function detectWorkspace(
   const result = await runAgentLoop(
     provider,
     [{ role: 'user', content: 'Analyze this workspace and return the JSON.' }],
-    registry.definitions,
+    registry.coreDefinitions,
     registry.executor,
     {
       systemPrompt: prompt.build(),

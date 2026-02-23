@@ -396,8 +396,8 @@ describe('ChatController', () => {
       expect(systemPrompt).toContain('readFile');
       expect(systemPrompt).toContain('bash');
       expect(systemPrompt).toContain('proposeEdit');
-      expect(systemPrompt).toContain('Workspace');
-      expect(systemPrompt).toContain('Actions');
+      expect(systemPrompt).toContain('Core tools');
+      expect(systemPrompt).toContain('findTools');
 
       // Chat instructions
       expect(systemPrompt).toContain('Handling Requests');

@@ -43,6 +43,8 @@ import { UpdateAlertTool } from '../ai/tools/update-alert';
 import { DeleteAlertTool } from '../ai/tools/delete-alert';
 import { DismissDiscoveryTool } from '../ai/tools/dismiss-discovery';
 import { ThinkTool } from '../ai/tools/think';
+import { FindToolsTool } from '../ai/tools/find-tools';
+import type { ToolDefinition } from '../ai/types';
 import type { CodeSelection } from '../ui/chat/chat-provider';
 import type { WorkspaceInfo } from '../workspace/types';
 import type { PostHogProject } from '../api/schemas';
@@ -78,10 +80,28 @@ export type ChatControllerOptions = {
   initialMessages?: SessionMessage[];
 };
 
+// Tools that always have their full JSON schema sent to the API.
+// Everything else is on-demand (listed in prompt, loaded via findTools).
+const CORE_TOOLS = new Set([
+  'think',
+  'findTools',
+  'readFile',
+  'listDirectory',
+  'searchCode',
+  'checkEnvKeys',
+  'bash',
+  'proposeEdit',
+  'docs-search',
+  'entity-search',
+  'query-run',
+]);
+
 export class ChatController implements vscode.Disposable {
   private readonly _options: ChatControllerOptions;
   private _session: Session;
   private _registry: ReturnType<typeof createToolRegistry>;
+  private _findTool: FindToolsTool;
+  private _activeTools: ToolDefinition[] = [];
   private _pendingConsent = new Map<
     string,
     (decision: ConsentDecision) => void
@@ -92,6 +112,7 @@ export class ChatController implements vscode.Disposable {
 
   constructor(options: ChatControllerOptions) {
     this._options = options;
+    this._findTool = new FindToolsTool();
     this._registry = this._buildRegistry();
     this._session = this._buildSession();
   }
@@ -109,14 +130,6 @@ export class ChatController implements vscode.Disposable {
   }
 
   async send(message: string): Promise<AgentResult> {
-    this._options.logger.debug(`[chat] user message: ${message}`);
-    this._options.logger.debug(
-      `[chat] tools: ${this._registry.definitions.map((t) => t.name).join(', ')}`,
-    );
-    this._options.logger.debug(
-      `[chat] conversation length: ${this._session.messages.length}`,
-    );
-
     if (this._discoveryContext) {
       const context = buildDiscoveryContext(this._discoveryContext);
       const augmented = context + '\n\n' + message;
@@ -180,6 +193,7 @@ export class ChatController implements vscode.Disposable {
 
     const tools: Tool[] = [
       new ThinkTool(),
+      this._findTool,
       new ReadFileTool(workspaceRoot),
       new ListDirectoryTool(workspaceRoot),
       new SearchCodeTool(workspaceRoot),
@@ -220,7 +234,7 @@ export class ChatController implements vscode.Disposable {
       );
     }
 
-    return createToolRegistry(tools);
+    return createToolRegistry(tools, CORE_TOOLS);
   }
 
   private _buildSession(): Session {
@@ -263,13 +277,42 @@ export class ChatController implements vscode.Disposable {
     });
 
     const systemPrompt = prompt.build();
-    this._options.logger.debug(`[chat] system prompt:\n${systemPrompt}`);
+    // Mutable array — starts with core tools, findTools pushes on-demand defs here
+    this._activeTools = [...this._registry.coreDefinitions];
+
+    this._findTool.bindResolver((names) => {
+      const loaded: string[] = [];
+      const already: string[] = [];
+      const notFound: string[] = [];
+
+      for (const name of names) {
+        if (this._activeTools.some((t) => t.name === name)) {
+          already.push(name);
+          continue;
+        }
+        const def = this._registry.onDemandDefinitions.get(name);
+        if (def) {
+          this._activeTools.push(def);
+          loaded.push(name);
+        } else {
+          notFound.push(name);
+        }
+      }
+
+      const parts: string[] = [];
+      if (loaded.length)
+        parts.push(`Loaded: ${loaded.join(', ')}. You can now call them.`);
+      if (already.length) parts.push(`Already loaded: ${already.join(', ')}.`);
+      if (notFound.length)
+        parts.push(`Not found: ${notFound.join(', ')}. Check the names.`);
+      return parts.join(' ');
+    });
 
     return new Session(this._options.provider, {
       id: this._options.sessionId,
       initialMessages: this._options.initialMessages,
       systemPrompt,
-      tools: this._registry.definitions,
+      tools: this._activeTools,
       executor: this._registry.executor,
       onEvent: (event) => {
         // proposeEdit has its own approval flow, so we attach feedback here instead
