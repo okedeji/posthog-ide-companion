@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "tobiokedeji",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tobiokedeji/ph-companion.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
