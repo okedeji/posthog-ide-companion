@@ -243,9 +243,10 @@ async function forceTextResponse(
   conversation.push({
     role: 'user',
     content:
+      options?.fallbackMessage ??
       'You have reached the maximum number of tool calls. ' +
-      'Summarize what you found and accomplished so far based on the tool results above. ' +
-      'If work is incomplete, clearly state what remains.',
+        'Summarize what you found and accomplished so far based on the tool results above. ' +
+        'If work is incomplete, clearly state what remains.',
   });
 
   const generateOptions: LLMGenerateOptions = {

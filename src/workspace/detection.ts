@@ -60,22 +60,21 @@ Explore this project to produce structured JSON describing it and detect PostHog
 
 ### Part 2: PostHog Setup Issue Detection
 
-Now that you know the ecosystem, use \`docs-search\` to find the latest PostHog SDK and setup guide for this project's language and framework. **Include the current date in your queries** to get the most current documentation.
+Search the codebase for any PostHog SDK (posthog-js, posthog-python, posthog-node, posthog-go, etc.).
 
-Based on what you learn from the docs, run these checks against the codebase. Add entries to \`setupIssues\` ONLY for confirmed problems. Empty array = no issues found.
+**If PostHog is NOT found:** report \`posthog_not_integrated\` and skip all other checks. Output the JSON immediately.
 
-**Dependency chain:** Check 1 is the gate. If PostHog is NOT found, skip Checks 2–8 entirely.
+**If PostHog IS found:** do ONE \`docs-search\` for the SDK setup guide for this ecosystem. Then run these checks against the codebase:
 
-1. **\`posthog_not_integrated\`** — Search docs to learn which PostHog SDK applies to this ecosystem. Then search the codebase for it. If no PostHog integration found at all, report this and stop here.
-2. **\`error_capture_not_configured\`** — Search docs for how to configure error capture for this SDK. Then verify the codebase has it. No SDK auto-enables error capture.
-3. **\`source_maps_not_configured\`** — JS/TS with bundler only. Search docs for source map upload setup. Skip for non-JS projects.
-4. **\`no_user_identification\`** — Search docs for how to identify users with this SDK. Check if identify calls exist in the codebase.
-5. **\`no_custom_events\`** — Search for custom event capture calls (exclude PostHog auto-events starting with \`$\`). Informational — use suggestive tone.
-6. **\`debug_mode_enabled\`** — Look for unconditional hardcoded debug mode in PostHog config. Ignore environment-conditional patterns — only flag if debug is hardcoded without any conditional guard. Read surrounding code context before deciding.
-7. **\`spa_pageview_not_configured\`** — Web SPAs only. Search docs for the latest SPA pageview tracking approach. Skip for non-web/non-SPA projects.
-8. **\`no_feature_flags\`** — Search for feature flag usage. Informational — use suggestive tone.
+1. **\`error_capture_not_configured\`** — Verify error capture is configured. No SDK auto-enables it.
+2. **\`source_maps_not_configured\`** — JS/TS with bundler only. Check for source map upload setup.
+3. **\`no_user_identification\`** — Check for identify calls.
+4. **\`no_custom_events\`** — Check for custom event capture (exclude auto-events starting with \`$\`). Informational tone.
+5. **\`debug_mode_enabled\`** — Only flag if debug is hardcoded without any conditional guard.
+6. **\`spa_pageview_not_configured\`** — Web SPAs only. Check for SPA pageview config.
+7. **\`no_feature_flags\`** — Check for feature flag usage. Informational tone.
 
-**For every check:** search docs for the latest PostHog guidance on that topic for this specific ecosystem. Include the current date in queries.
+Only add confirmed issues to \`setupIssues\`. Empty array = no issues.
 
 ### Output Schema
 
@@ -193,6 +192,11 @@ export async function detectWorkspace(
       temperature: 0,
       maxTokens: 4096,
       maxToolResultLength: 8_000,
+      fallbackMessage:
+        'You have reached the maximum number of tool calls. ' +
+        'Output the JSON object NOW based on everything you have found so far. ' +
+        'Use empty arrays or null for fields you could not determine. ' +
+        'Your response must be ONLY the JSON object, nothing else.',
       onEvent: options?.onEvent,
     },
   );

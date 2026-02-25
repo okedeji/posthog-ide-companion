@@ -119,10 +119,10 @@ export type AgentLoopOptions = {
   enableStreaming?: boolean;
   toolChoice?: ToolChoice;
   onEvent?: AgentEventCallback;
-  // if not provided, consent-requiring tools are auto-rejected
   onConsent?: ConsentCallback;
   signal?: AbortSignal;
   maxToolResultLength?: number;
+  fallbackMessage?: string;
 };
 
 export type AgentResult = {
