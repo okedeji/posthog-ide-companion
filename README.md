@@ -123,7 +123,7 @@ Everything above works end-to-end today with BYOK for Anthropic or OpenAI. Here'
 ### Setup
 
 ```bash
-git clone https://github.com/tobiokedeji/ph-companion.git
+git clone https://github.com/okedeji/posthog-ide-companion.git
 cd ph-companion
 pnpm install
 pnpm compile
