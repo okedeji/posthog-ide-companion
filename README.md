@@ -3,7 +3,7 @@
 My initial motivation and journey were a little interesting...
 - Found PostHog on Twitter, signed up to discover the cool onboarding [Wizard](https://github.com/PostHog/wizard).
 - Immediately jumped on it, but hit a 401 bug. Decided it's faster to debug than to raise an issue
-- Dug in and figured it was an issue with Posthog's internal LLM gateway
+- Dug in and figured it was an issue with PostHog's internal LLM gateway
 - Unblocked myself by adding a flag to introduce BYOK to bypass the gateway by choice, and that became my [first PR](https://github.com/PostHog/wizard/pull/271)
 - That works, but there is another problem discovered: 60% of events captured, in my case, were not needed.
 - Instead of leaving me with dead code to clean up, why not ask for my approval and make the process interactive?
