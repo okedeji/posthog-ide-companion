@@ -174,12 +174,9 @@ function pushContentBlock(
     case 'tool_use':
       input.push({
         type: 'function_call',
-        id: block.id,
         name: block.name,
         arguments: JSON.stringify(block.input),
         call_id: block.id,
-        // The Responses API type defs don't include function_call as a valid
-        // input item, but the API accepts it. Cast until the SDK catches up.
       } as OpenAI.Responses.ResponseInputItem);
       break;
     case 'tool_result':
@@ -206,7 +203,7 @@ function mapFunctionCalls(
   calls: OpenAI.Responses.ResponseFunctionToolCall[],
 ): ToolCall[] {
   return calls.map((call) => ({
-    id: call.id ?? call.call_id ?? '',
+    id: call.call_id ?? call.id ?? '',
     name: call.name,
     arguments: safeParseJson(call.arguments),
   }));
