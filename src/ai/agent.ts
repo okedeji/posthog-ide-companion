@@ -291,5 +291,11 @@ async function forceTextResponse(
 function noop(): void {}
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  const msg = err instanceof Error ? err.message : String(err);
+  return sanitizeErrorMessage(msg);
+}
+
+// Redact API keys that upstream SDKs may echo back in error messages.
+function sanitizeErrorMessage(msg: string): string {
+  return msg.replace(/\b(sk-[a-zA-Z0-9_-]{3})[a-zA-Z0-9_-]+/g, '$1***');
 }

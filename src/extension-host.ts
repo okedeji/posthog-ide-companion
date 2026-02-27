@@ -459,6 +459,7 @@ export class ExtensionHost implements vscode.Disposable {
         this.statusProvider.setAISelection(selection, label);
         this.logger.info(`AI configured: ${selection.provider} (${label})`);
         await this._refreshCachedProvider();
+        this.chatProvider.resetController();
 
         if (!getStoredWorkspaceInfo(this.context)) {
           void this.triggerWorkspaceDetection();
