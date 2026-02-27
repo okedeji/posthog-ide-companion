@@ -347,7 +347,7 @@ export class ChatController implements vscode.Disposable {
   private _handleEditApproval = async (
     proposal: EditProposal,
   ): Promise<EditApprovalResult> => {
-    const callId = `edit-${Date.now()}`;
+    const callId = `edit-${crypto.randomUUID()}`;
     return new Promise((resolve) => {
       this._pendingConsent.set(callId, (decision) => {
         if (decision.action === 'respond') {
