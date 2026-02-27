@@ -102,7 +102,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => undefined,
+      async () => undefined,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -122,7 +122,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => undefined,
       60_000,
     );
@@ -151,7 +151,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => info,
       60_000,
     );
@@ -180,7 +180,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -206,7 +206,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       logger,
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -241,7 +241,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -283,7 +283,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -326,7 +326,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -363,7 +363,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -402,7 +402,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -435,7 +435,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       logger,
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -469,7 +469,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -501,7 +501,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => makeMockProvider(),
+      async () => makeMockProvider(),
       () => makeWorkspaceInfo(),
       60_000,
     );
@@ -540,7 +540,7 @@ describe('createFileAnalysisPoller', () => {
       store,
       makeMockLogger(),
       '/workspace',
-      () => provider,
+      async () => provider,
       () => makeWorkspaceInfo(),
       60_000,
     );

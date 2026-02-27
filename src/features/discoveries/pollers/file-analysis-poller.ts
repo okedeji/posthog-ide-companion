@@ -213,7 +213,7 @@ export function createFileAnalysisPoller(
   store: DiscoveryStore,
   logger: Logger,
   workspaceRoot: string,
-  getProvider: () => LLMProvider | undefined,
+  getProvider: () => Promise<LLMProvider | undefined>,
   getWorkspaceInfo: () => WorkspaceInfo | undefined,
   intervalMs: number = DEFAULT_POLL_INTERVAL_MS,
 ): Poller<void> {
@@ -225,7 +225,7 @@ export function createFileAnalysisPoller(
     intervalMs,
     logger,
     fetchFn: async () => {
-      const provider = getProvider();
+      const provider = await getProvider();
       if (!provider) {
         return;
       }

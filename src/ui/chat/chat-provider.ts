@@ -68,7 +68,7 @@ type IncomingMessage =
 export type ChatProviderDeps = {
   extensionUri: vscode.Uri;
   logger: Logger;
-  getProvider: () => LLMProvider | undefined;
+  getProvider: () => Promise<LLMProvider | undefined>;
   getWorkspaceRoot: () => string | undefined;
   getMcpClient: () => PostHogMcpClient | undefined;
   getApiClient: () => PostHogApiClient | undefined;
@@ -125,10 +125,10 @@ export class ChatViewProvider implements vscode.Disposable {
     this._saveAndReset();
   }
 
-  loadCodeContext(context: CodeSelection): void {
+  async loadCodeContext(context: CodeSelection): Promise<void> {
     this._revealOrCreate();
 
-    const controller = this._ensureController();
+    const controller = await this._ensureController();
     if (!controller) {
       return;
     }
@@ -143,10 +143,10 @@ export class ChatViewProvider implements vscode.Disposable {
     });
   }
 
-  loadDiscoveryContext(discovery: Discovery): void {
+  async loadDiscoveryContext(discovery: Discovery): Promise<void> {
     this._revealOrCreate();
 
-    const controller = this._ensureController();
+    const controller = await this._ensureController();
     if (!controller) {
       return;
     }
@@ -315,11 +315,11 @@ export class ChatViewProvider implements vscode.Disposable {
   }
 
   private async _handleSend(text: string): Promise<void> {
-    if (!this._deps.getProvider()) {
+    if (!(await this._deps.getProvider())) {
       this._postMessage({
         type: 'error',
         message:
-          'Not signed in. Use "PostHog: Sign In" from the Command Palette.',
+          'No AI provider configured. Use "PostHog: Configure AI" from the Command Palette.',
       });
       this._postHistory();
       this._postState();
@@ -346,7 +346,7 @@ export class ChatViewProvider implements vscode.Disposable {
       return;
     }
 
-    const controller = this._ensureController();
+    const controller = await this._ensureController();
     if (!controller) {
       this._postMessage({
         type: 'error',
@@ -360,8 +360,12 @@ export class ChatViewProvider implements vscode.Disposable {
     try {
       await controller.send(text);
     } catch (err) {
-      const message =
+      const raw =
         err instanceof Error ? err.message : 'An unexpected error occurred.';
+      const message = raw.replace(
+        /\b(sk-[a-zA-Z0-9_-]{3})[a-zA-Z0-9_-]+/g,
+        '$1***',
+      );
       this._postMessage({ type: 'error', message });
     }
 
@@ -370,12 +374,12 @@ export class ChatViewProvider implements vscode.Disposable {
     this._postState();
   }
 
-  private _ensureController(): ChatController | undefined {
+  private async _ensureController(): Promise<ChatController | undefined> {
     if (this._controller) {
       return this._controller;
     }
 
-    const provider = this._deps.getProvider();
+    const provider = await this._deps.getProvider();
     const workspaceRoot = this._deps.getWorkspaceRoot();
 
     if (!provider || !workspaceRoot) {

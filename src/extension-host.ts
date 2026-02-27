@@ -263,7 +263,7 @@ export class ExtensionHost implements vscode.Disposable {
 
   // --- ai provider ---
 
-  private _resolveAIProvider(): LLMProvider | undefined {
+  private async _resolveAIProvider(): Promise<LLMProvider | undefined> {
     const aiSelection = getActiveAISelection(this.context);
     if (!aiSelection) {
       return undefined;
@@ -272,7 +272,9 @@ export class ExtensionHost implements vscode.Disposable {
     if (this._cachedProvider) {
       return this._cachedProvider;
     }
-    return undefined;
+
+    await this._refreshCachedProvider();
+    return this._cachedProvider;
   }
 
   private _cachedProvider: LLMProvider | undefined;

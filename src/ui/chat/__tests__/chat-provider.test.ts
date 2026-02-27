@@ -69,7 +69,7 @@ function createDeps(
   return {
     extensionUri: Uri.file('/test/extension'),
     logger: { info: jest.fn(), error: jest.fn(), debug: jest.fn() },
-    getProvider: () =>
+    getProvider: async () =>
       createMockProvider([{ type: 'text', content: 'Hello!', usage: USAGE }]),
     getWorkspaceRoot: () => '/tmp/test-workspace',
     getMcpClient: () => ({ tools: [], callTool: jest.fn() }) as never,
@@ -178,7 +178,7 @@ describe('ChatViewProvider', () => {
 
     it('should post error and clear loading state when provider is not configured', async () => {
       const { panel, send } = setupProvider({
-        getProvider: () => undefined,
+        getProvider: async () => undefined,
       });
 
       send({ type: 'send', text: 'Hello' });
@@ -190,7 +190,7 @@ describe('ChatViewProvider', () => {
 
       const errorMsg = calls.find((m) => m.type === 'error');
       expect(errorMsg).toBeDefined();
-      expect(errorMsg?.message).toContain('Not signed in');
+      expect(errorMsg?.message).toContain('No AI provider configured');
 
       // Must also send history + state to clear the optimistic user message and spinner
       const stateMsg = calls.find((m) => m.type === 'state');
@@ -264,7 +264,7 @@ describe('ChatViewProvider', () => {
       ];
 
       const { panel, send } = setupProvider({
-        getProvider: () => createMockProvider(responses),
+        getProvider: async () => createMockProvider(responses),
       });
 
       send({ type: 'send', text: 'Run ls' });
@@ -313,7 +313,7 @@ describe('ChatViewProvider', () => {
         source: {},
       };
 
-      provider.loadDiscoveryContext(discovery);
+      await provider.loadDiscoveryContext(discovery);
 
       const panel = (window.createWebviewPanel as jest.Mock).mock.results.slice(
         -1,
