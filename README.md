@@ -97,6 +97,8 @@ Everything above works end-to-end today with BYOK for Anthropic or OpenAI. Here'
 
 **PostHog LLM gateway integration.** This is the big one. Right now, users need their own API keys. Hooking into PostHog's native LLM gateway means zero extra (or baked-in) cost for users. PostHog handles the AI infra as with the Wizard, BYOK becomes optional.
 
+**PostHog Analytics.** Need to wire in analytics service so we know what is going on while being used. Heck, maybe it can even wire this in by itself.
+
 **Cross-framework testing.** Built and tested against JavaScript/TypeScript projects so far. Needs proper validation across Python, Ruby, Go, and the other frameworks PostHog supports.
 
 **Prompt eval pipeline.** The prompts work, but I haven't put them through any systematic evaluation yet. Building an eval pipeline with real-world scenarios to measure accuracy, hallucination rate, and task completion is required for production.
