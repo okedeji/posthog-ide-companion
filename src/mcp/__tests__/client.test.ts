@@ -20,7 +20,11 @@ jest.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
 const MockClient = jest.mocked(Client);
 const MockTransport = jest.mocked(StreamableHTTPClientTransport);
 
-const OPTIONS = { apiKey: 'phx_test_key', projectId: 42 };
+const OPTIONS = {
+  apiKey: 'phx_test_key',
+  projectId: 42,
+  region: 'us' as const,
+};
 
 describe('PostHogMcpClient', () => {
   beforeEach(() => {
@@ -77,6 +81,24 @@ describe('PostHogMcpClient', () => {
 
       expect(states).toEqual(['connecting', 'connected']);
       expect(client.state).toBe('connected');
+    });
+
+    it('should use region-specific MCP URL', async () => {
+      const euClient = new PostHogMcpClient({ ...OPTIONS, region: 'eu' });
+      await euClient.connect();
+
+      expect(MockTransport).toHaveBeenCalledWith(
+        new URL('https://mcp.eu.posthog.com/mcp'),
+        expect.any(Object),
+      );
+
+      const usClient = new PostHogMcpClient({ ...OPTIONS, region: 'us' });
+      await usClient.connect();
+
+      expect(MockTransport).toHaveBeenCalledWith(
+        new URL('https://mcp.us.posthog.com/mcp'),
+        expect.any(Object),
+      );
     });
 
     it('should call switch-project with the project ID', async () => {

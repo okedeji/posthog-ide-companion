@@ -2,8 +2,12 @@ import * as vscode from 'vscode';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { ToolDefinition } from '../ai/types';
+import type { CloudRegion } from '../auth/constants';
 
-const MCP_URL = 'https://mcp.posthog.com/mcp';
+const MCP_URLS: Record<CloudRegion, string> = {
+  us: 'https://mcp.us.posthog.com/mcp',
+  eu: 'https://mcp.eu.posthog.com/mcp',
+};
 
 export type McpConnectionState =
   | 'disconnected'
@@ -19,6 +23,7 @@ export type McpToolResult = {
 export type McpClientOptions = {
   apiKey: string;
   projectId: number;
+  region: CloudRegion;
 };
 
 // Wraps the MCP SDK client with connect/disconnect lifecycle and tool bridging.
@@ -50,7 +55,8 @@ export class PostHogMcpClient implements vscode.Disposable {
     this.setState('connecting');
 
     try {
-      this._transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
+      const mcpUrl = MCP_URLS[this._options.region];
+      this._transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
         requestInit: {
           headers: {
             Authorization: `Bearer ${this._options.apiKey}`,
@@ -59,8 +65,8 @@ export class PostHogMcpClient implements vscode.Disposable {
       });
 
       this._client = new Client({
-        name: 'posthog-ide-companion',
-        version: '0.1.0',
+        name: 'ide-companion-for-posthog',
+        version: '0.2.0',
       });
 
       await this._client.connect(this._transport);

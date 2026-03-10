@@ -1,18 +1,32 @@
 {
   "name": "posthog-ide-companion",
-  "displayName": "PostHog IDE Companion",
-  "description": "A VSCode extension that makes PostHog proactive in the developer's workflow. It monitors your PostHog project in the background, lets you ask questions about your data without leaving the IDE, and takes action on code when something needs fixing.",
-  "version": "0.1.0",
+  "displayName": "IDE Companion for PostHog",
+  "description": "Bring PostHog into your editor. Monitor errors, manage feature flags, query analytics, and get AI-powered fixes without leaving VS Code.",
+  "version": "0.2.0",
   "publisher": "tobiokedeji",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tobiokedeji/ph-companion.git"
+    "url": "https://github.com/okedeji/posthog-ide-companion.git"
   },
   "engines": {
     "vscode": "^1.85.0"
   },
+  "icon": "resources/icon.png",
+  "author": {
+    "name": "Tobi Okedeji"
+  },
+  "keywords": [
+    "posthog",
+    "analytics",
+    "feature-flags",
+    "error-tracking",
+    "dashboards",
+    "ai"
+  ],
   "categories": [
+    "Data Science",
+    "Visualization",
     "Other"
   ],
   "activationEvents": [
@@ -232,15 +246,15 @@
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.mjs --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "build": "pnpm compile",
+    "build": "pnpm check-types && node esbuild.mjs --production",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "check-types": "tsc --noEmit",
-    "package": "pnpm check-types && node esbuild.mjs --production && vsce package",
+    "package": "pnpm build && vsce package",
     "prepare": "husky",
-    "vscode:prepublish": "pnpm package"
+    "vscode:prepublish": "pnpm build"
   },
   "jest": {
     "collectCoverage": true,

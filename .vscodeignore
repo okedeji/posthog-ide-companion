@@ -12,13 +12,23 @@ node_modules/**
 # Build tooling and config
 .gitignore
 .eslintrc.json
+eslint.config.mjs
 .prettierrc
 tsconfig.json
 esbuild.mjs
+jest.config.*
 .husky/**
+CLAUDE.md
 
 # Test artifacts
 .vscode-test/**
+coverage/**
+
+# Docs images (referenced via GitHub URLs in README)
+docs/**
+
+# Lock file (not needed at runtime)
+pnpm-lock.yaml
 
 # Sourcemaps and raw TypeScript
 **/*.map

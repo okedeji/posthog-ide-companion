@@ -238,7 +238,7 @@ export class ExtensionHost implements vscode.Disposable {
     this.logger.info(`Restored project: ${project.name}`);
 
     this.startDiscoveryPolling(credentials.region, project.id);
-    await this.connectMcp(credentials.token, project.id);
+    await this.connectMcp(credentials.token, project.id, credentials.region);
     await this.restoreAISelection();
   }
 
@@ -291,16 +291,17 @@ export class ExtensionHost implements vscode.Disposable {
 
   // --- mcp ---
 
-  private async connectMcp(apiKey: string, projectId: number): Promise<void> {
+  private async connectMcp(
+    apiKey: string,
+    projectId: number,
+    region: CloudRegion,
+  ): Promise<void> {
     this.disconnectMcp();
-    const client = new PostHogMcpClient({ apiKey, projectId });
+    const client = new PostHogMcpClient({ apiKey, projectId, region });
     try {
       await client.connect();
       this.mcpClient = client;
       this.logger.info(`MCP connected (${client.tools.length} tools)`);
-      // for (const t of client.tools) {
-      //   this.logger.info(`  [mcp] ${t.name}: ${t.description ?? '(no description)'}`);
-      // }
     } catch (err) {
       this.logger.error('MCP connection failed (non-fatal)', err);
       client.dispose();
@@ -402,7 +403,7 @@ export class ExtensionHost implements vscode.Disposable {
 
       this.chatProvider.resetController();
       this.startDiscoveryPolling(credentials.region, selected.id);
-      await this.connectMcp(credentials.token, selected.id);
+      await this.connectMcp(credentials.token, selected.id, credentials.region);
       this.logger.info(`Selected project: ${selected.name} (${selected.id})`);
 
       await this.switchWorkspacePath();
