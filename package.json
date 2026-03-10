@@ -2,7 +2,7 @@
   "name": "posthog-ide-companion",
   "displayName": "IDE Companion for PostHog",
   "description": "Bring PostHog into your editor. Monitor errors, manage feature flags, query analytics, and get AI-powered fixes without leaving VS Code.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "tobiokedeji",
   "license": "MIT",
   "repository": {
